@@ -148,6 +148,7 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
     <button role="tab" data-act="tab" data-tab="trips">Trips</button>
     <button role="tab" data-act="tab" data-tab="roster">Roster</button>
     <button role="tab" data-act="tab" data-tab="costs">Costs &amp; fundraising</button>
+    <button role="tab" data-act="tab" data-tab="usccs">USCCS costs</button>
     <button role="tab" data-act="tab" data-tab="payments">Payments</button>
   </nav>
   <div id="view" class="panel"></div>
@@ -214,7 +215,8 @@ const loaded={};
 const wr=new Map();
 const S={phase:'connecting',code:'',rev:-1,writeSeq:0,offline:false,lockMsg:'',tab:'balances',open:{},filter:'all',armed:null};
 const DEFAULT_CFG={fixed:[{id:'gear',name:'Gear',basis:'split',lines:[{id:'g1',label:'Gear order',amount:0}]},{id:'coach',name:"Coach's pay",basis:'split',lines:[{id:'c1',label:"Coach's pay",amount:0}]}],fundraising:0,rollover:false};
-const cfg=()=>local.config.get('main')||DEFAULT_CFG;
+const USCCS={id:'usccs',group:'usccs',name:'USCCS league costs',basis:'split',lines:[{id:'bond',label:'Performance bond',amount:0},{id:'ref',label:'Referee fees',amount:0},{id:'assign',label:'Referee assigning fees',amount:0},{id:'fines',label:'Cancellation fees and fines',amount:0},{id:'natapp',label:'Nationals application fee',amount:0},{id:'reg',label:'Player/coach registration',amount:0}]};
+const cfg=()=>{const c=local.config.get('main')||DEFAULT_CFG;return (c.fixed||[]).some(i=>i.id==='usccs')?c:{...c,fixed:[...(c.fixed||[]),USCCS]};};
 const clone=o=>JSON.parse(JSON.stringify(o));
 
 /* ---------- saving ---------- */
@@ -319,7 +321,7 @@ function paint(){
     return;}
   const C=compute(local.players,local.trips,local.payments,cfg());
   $('tiles').innerHTML=tiles(C);
-  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,payments:vPayments}[S.tab]||vBalances)(C);
+  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments}[S.tab]||vBalances)(C);
   for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
   if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
 }
@@ -352,13 +354,13 @@ function vBalances(C){
   return `${warns(C)}
   <div class="row between"><div class="filters">${f('all','All')}${f('owes','Owes')}${f('clear','Settled')}</div>
   <button data-act="copy">Copy balances</button></div>
-  <div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th>Gear &amp; coach</th><th>Travel</th><th>Fundraising</th><th>Dues</th><th>Paid</th><th>Balance</th><th class="l">Status</th></tr></thead>
+  <div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th>Squad &amp; league</th><th>Travel</th><th>Fundraising</th><th>Dues</th><th>Paid</th><th>Balance</th><th class="l">Status</th></tr></thead>
   <tbody>${rows.map(r=>`<tr><td><button class="pname" data-act="open" data-id="${esc(r.id)}" aria-expanded="${!!S.open[r.id]}">${esc(r.name)}</button></td>
     <td class="l">${squadTag(r.squad)}</td><td class="num">${fmt(r.fixed)}</td><td class="num">${fmt(r.travel)} <span class="muted small">(${r.tripCount})</span></td>
     <td class="num">${r.credit?fmt(-r.credit):fmt(0)}</td><td class="num">${fmt(r.net)}</td><td class="num">${fmt(r.paid)}</td><td class="num bal">${fmt(r.balance)}</td><td class="l">${pill(r)}</td></tr>
     ${S.open[r.id]?detail(r):''}`).join('')||'<tr><td colspan="9" class="muted">No players match this filter.</td></tr>'}</tbody>
   <tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.fixed)}</td><td class="num">${fmt(C.tot.travel)}</td><td class="num">${fmt(-C.tot.credit)}</td><td class="num">${fmt(C.tot.net)}</td><td class="num">${fmt(C.tot.paid)}</td><td class="num">${fmt(C.tot.net-C.tot.paid)}</td><td></td></tr></tfoot></table></div>
-  <p class="small muted">Dues = gear and coach's pay (travel squad only) + a share of each trip taken − fundraising credit. The number beside Travel is trips taken.</p>`;
+  <p class="small muted">Dues = gear, coach's pay, and USCCS costs (travel squad only) + a share of each trip taken − fundraising credit. The number beside Travel is trips taken.</p>`;
 }
 function detail(r){
   const pays=[...local.payments].filter(([id,p])=>p.playerId===r.id).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
@@ -405,7 +407,7 @@ function vRoster(C){
     <label class="field grow"><span>Names, one per line</span><textarea id="np-names" data-draft placeholder="First Last&#10;First Last"></textarea></label>
     <label class="field"><span>Squad</span><select id="np-squad" data-draft><option value="travel">Travel squad</option><option value="practice">Practice squad</option></select></label>
     <button class="primary" data-act="addplayers">Add players</button></div>
-    <span class="small muted">Travel squad pays gear, coach's pay, and travel, and receives fundraising credit. Practice squad pays only for the trips they take.</span></div>
+    <span class="small muted">Travel squad pays gear, coach's pay, USCCS costs, and travel, and receives fundraising credit. Practice squad pays only for the trips they take.</span></div>
   ${C.list.length?`<div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th class="l">Trips traveled</th><th>Dues</th><th></th></tr></thead><tbody>
   ${C.list.map(r=>`<tr><td><input type="text" class="bare" id="pn-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="name" value="${esc(r.name)}" aria-label="Player name"></td>
     <td class="l"><select id="ps-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="squad" aria-label="Squad" style="width:auto"><option value="travel"${r.squad==='travel'?' selected':''}>Travel squad</option><option value="practice"${r.squad==='practice'?' selected':''}>Practice squad</option></select></td>
@@ -416,20 +418,31 @@ function vCosts(C){
   const c=cfg();const per=C.list.find(r=>r.squad==='travel');
   return `${warns(C)}<div class="card"><h2>Travel squad costs</h2>
     <span class="small muted">Charged to travel squad players only, whether or not they travel.</span>
-    ${(c.fixed||[]).map(it=>`<div class="costblock"><div class="row">
+    ${(c.fixed||[]).filter(it=>it.group!=='usccs').map(it=>`<div class="costblock"><div class="row">
       <label class="field grow"><span>Cost</span><input type="text" id="fn-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="name" value="${esc(it.name)}"></label>
       <label class="field"><span>Entered as</span><select id="fb-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="basis"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
       <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span></div>
       <button class="danger" data-act="delfixed" data-id="${esc(it.id)}">Remove category</button></div>
       ${linesHtml('fl',it.id,Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]))}</div>`).join('')}
     <div class="row between"><button data-act="addfixed">Add a category</button>
-    <span>Each travel squad player owes <strong class="num">${fmt(per?per.fixed:0)}</strong> before travel</span></div></div>
+    <span>Each travel squad player owes <strong class="num">${fmt(per?per.fixed:0)}</strong> before travel, including USCCS costs</span></div></div>
   <div class="card"><h2>Fundraising</h2><div class="row">
     <label class="field"><span>Total raised</span><input type="text" inputmode="decimal" class="money" id="fr-total" data-c="fund" value="${mval(c.fundraising)}" placeholder="0.00"></label>
     <div class="field"><span>Credit per travel squad player</span><span class="share num">${C.nTravel?fmt(C.perCredit):'—'}</span></div>
     <div class="field"><span>Travel squad players</span><span class="share num">${C.nTravel}</span></div></div>
     <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>If a player's credit is larger than his dues, pass the extra to travel squad players who still owe</span></label>
     <span class="small muted">Fundraising is split evenly across the travel squad. A credit never pushes a player's dues below zero.</span></div>`;
+}
+function vUsccs(C){
+  const it=(cfg().fixed||[]).find(i=>i.id==='usccs'),tot=fixedAmt(it),n=C.nTravel;
+  return `<div class="card"><h2>Performance bond, referees, and other USCCS costs</h2>
+    <span class="small muted">Everything owed to US College Club Soccer. Charged to travel squad players only, like gear and coach's pay.</span>
+    <div class="row">
+      <label class="field"><span>Entered as</span><select id="fb-usccs" data-c="fixed" data-id="usccs" data-k="basis" style="width:auto"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
+      <div class="field"><span>Total</span><span class="share num">${fmt(tot)}</span></div>
+      <div class="field"><span>Per travel squad player</span><span class="share num">${n?fmt(it.basis==='each'?tot:tot/n):'—'}</span></div></div>
+    ${linesHtml('fl','usccs',it.lines)}
+    <div class="banner">USCCS draws on the performance bond to pay referees and fines. Enter referee fees, assigning fees, and fines here only for amounts billed beyond the bond, so the same money is not counted twice. The Nationals application fee is refunded if the team does not qualify.</div></div>`;
 }
 function vPayments(C){
   const pays=[...local.payments].sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||'')||(b[1].at||0)-(a[1].at||0));
@@ -500,7 +513,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
-try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','payments'].includes(h))S.tab=h;}catch(e){}
+try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments'].includes(h))S.tab=h;}catch(e){}
 setStatus();render();boot();
 </script>
 </body>
