@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Club Soccer Dues Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}code{background:var(--sunk);padding:1px 5px;border-radius:3px}
+/* Layout: a ledger. Summary strip on top, tabbed working area below, one wide money table as the centerpiece. */
+:root{
+  --bg:#f2f5f0; --surface:#ffffff; --sunk:#e8ede6; --fg:#15211a; --muted:#5a6a60; --line:#d3dcd3;
+  --accent:#0a6a43; --accent-fg:#ffffff; --mark:#f4d21f; --mark-fg:#2a2400;
+  --good:#1a7a4b; --warn:#a65f00; --bad:#b0362a;
+  --good-bg:#dff1e6; --warn-bg:#fbeccd; --bad-bg:#f8dfdb;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1411; --surface:#161f1a; --sunk:#1d2822; --fg:#e7eee8; --muted:#93a399; --line:#2b3931;
+  --accent:#4cc489; --accent-fg:#06180f; --mark:#f4d21f; --mark-fg:#2a2400;
+  --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
+  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1411; --surface:#161f1a; --sunk:#1d2822; --fg:#e7eee8; --muted:#93a399; --line:#2b3931;
+  --accent:#4cc489; --accent-fg:#06180f; --mark:#f4d21f; --mark-fg:#2a2400;
+  --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
+  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:20px 72px;display:flex;flex-direction:column;gap:18px}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:34px;line-height:1;text-transform:uppercase}
+h2{font-size:22px;text-transform:uppercase}
+h3{font-size:18px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:3px solid var(--accent);padding-bottom:12px}
+header.top .name{display:flex;flex-direction:column;gap:4px}
+.status{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+.status[data-s="saving"]::before{background:var(--mark)}
+.status[data-s="off"]::before{background:var(--bad)}
+
+.banner{background:var(--warn-bg);color:var(--fg);border-left:4px solid var(--warn);padding:10px 12px;border-radius:var(--r);font-size:14px}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .v{font-family:var(--display);font-weight:700;font-size:30px;line-height:1.05}
+.tile.key{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.tile.key .eyebrow,.tile.key .muted{color:var(--accent-fg);opacity:.85}
+@media (max-width:760px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.tile .v{font-size:26px}}
+
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav.tabs button{font:600 15px var(--body);background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer;margin-bottom:-1px}
+nav.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--mark)}
+nav.tabs button:hover{color:var(--fg)}
+
+.panel{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.row.between{justify-content:space-between;align-items:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.grow{flex:1 1 180px}
+input[type=text],input[type=password],input[type=date],select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0;width:100%}
+textarea{min-height:120px;resize:vertical}
+input.money{width:120px;text-align:right;font-variant-numeric:tabular-nums}
+input.bare{background:transparent;border-color:transparent;padding-inline:6px}
+input.bare:hover{border-color:var(--line)}
+input.bare:focus{background:var(--bg);border-color:var(--line)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:600 14px var(--body);border-radius:var(--r);padding:8px 12px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+button.link{border:0;background:none;padding:2px 4px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+button.danger{color:var(--bad)}
+button.danger.armed{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+button:disabled{opacity:.5;cursor:default}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--sunk);position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+td.l,th.l{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+tfoot td{font-weight:600;border-top:2px solid var(--fg);border-bottom:0}
+tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:12px 14px}
+.pname{font-weight:600;background:none;border:0;padding:0;color:var(--fg);cursor:pointer;font-size:14px;text-align:left}
+.pname::before{content:"▸";display:inline-block;width:14px;color:var(--muted)}
+.pname[aria-expanded="true"]::before{content:"▾"}
+.bal{font-weight:600}
+.pill{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:99px}
+.pill.owes{background:var(--warn-bg);color:var(--warn)}
+.pill.paid{background:var(--good-bg);color:var(--good)}
+.pill.credit{background:var(--sunk);color:var(--muted)}
+.tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tag.ps{color:var(--mark-fg);background:var(--mark);padding:1px 6px;border-radius:3px}
+
+.lines{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;max-width:460px}
+.lines .tot{border-top:1px solid var(--line);padding-top:4px;font-weight:600}
+.detailgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.detailgrid>div{display:flex;flex-direction:column;gap:8px;min-width:0}
+
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 12px}
+.checks label{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:var(--r);cursor:pointer;min-width:0}
+.checks label:hover{background:var(--sunk)}
+.checks label span{overflow-wrap:anywhere}
+.checks input{accent-color:var(--accent);width:16px;height:16px;flex:none}
+.field>span.share{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:0;text-transform:none;color:var(--fg);line-height:1.5}
+
+.explines{display:flex;flex-direction:column;gap:6px;max-width:540px}
+.expline{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:6px;align-items:center}
+.expline input.money{width:100%}
+.chips{display:flex;gap:4px;flex-wrap:wrap;min-width:180px}
+.chip{padding:3px 10px;border-radius:99px;font-size:12px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.costblock{display:flex;flex-direction:column;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:22px;display:flex;flex-direction:column;gap:12px}
+.empty ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:62ch}
+.warnlist{display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;bottom:0;transform:translateX(-50%);margin-bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:var(--r);font-size:14px;max-width:calc(100% - 32px)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <header class="top">
+    <div class="name">
+      <span class="eyebrow">UO Men's Club Soccer</span>
+      <h1>Dues Ledger</h1>
+    </div>
+    <div class="row" style="align-items:center"><div class="status" id="status" data-s="saving">Connecting…</div><button id="lockbtn" data-act="lock" hidden>Lock</button></div>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <div id="tiles" class="tiles"></div>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button role="tab" data-act="tab" data-tab="balances">Balances</button>
+    <button role="tab" data-act="tab" data-tab="trips">Trips</button>
+    <button role="tab" data-act="tab" data-tab="roster">Roster</button>
+    <button role="tab" data-act="tab" data-tab="costs">Costs &amp; fundraising</button>
+    <button role="tab" data-act="tab" data-tab="payments">Payments</button>
+  </nav>
+  <div id="view" class="panel"></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+/*CALC-START*/
+const sumLines=a=>(a||[]).reduce((t,l)=>t+Math.max(0,+l.amount||0),0);
+const tripCost=t=>Array.isArray(t.expenses)?sumLines(t.expenses):Math.max(0,+t.cost||0);
+const fixedAmt=it=>Array.isArray(it.lines)?sumLines(it.lines):Math.max(0,+it.amount||0);
+function compute(players, trips, payments, cfg){
+  const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',items:[],fixed:0,travel:0,tripCount:0,credit:0,paid:0}));
+  const rows=new Map(list.map(r=>[r.id,r]));
+  const tsq=list.filter(r=>r.squad==='travel'), n=tsq.length, warnings=[];
+  (cfg.fixed||[]).forEach(it=>{
+    const amt=fixedAmt(it); if(!amt) return;
+    if(!n){warnings.push(`"${it.name||'Squad cost'}" has no travel squad players to bill.`);return;}
+    const each=it.basis==='each'?amt:amt/n;
+    tsq.forEach(r=>{r.fixed+=each;r.items.push({label:it.name||'Squad cost',amount:each});});
+  });
+  const tripInfo=new Map();
+  [...trips].forEach(([id,t])=>{
+    const goers=[...new Set(t.travelers||[])].map(x=>rows.get(x)).filter(Boolean);
+    const cost=tripCost(t), share=goers.length?cost/goers.length:0;
+    tripInfo.set(id,{count:goers.length,share,cost});
+    if(cost>0&&!goers.length) warnings.push(`"${t.name||'Untitled trip'}" has a cost but no travelers checked, so nobody is billed for it.`);
+    goers.forEach(r=>{r.travel+=share;r.tripCount++;r.items.push({label:'Travel: '+(t.name||'Untitled trip'),amount:share});});
+  });
+  list.forEach(r=>r.gross=r.fixed+r.travel);
+  const F=Math.max(0,+cfg.fundraising||0);
+  if(n){
+    if(cfg.rollover){
+      let rem=F; const s=[...tsq].sort((a,b)=>a.gross-b.gross);
+      s.forEach((r,i)=>{const level=rem/(n-i); r.credit=Math.min(r.gross,level); rem-=r.credit;});
+    } else tsq.forEach(r=>r.credit=Math.min(r.gross,F/n));
+  }
+  let orphanPaid=0;
+  [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r) r.paid+=a; else orphanPaid+=a;});
+  const tot={gross:0,fixed:0,travel:0,credit:0,net:0,paid:0,owed:0,over:0};
+  list.forEach(r=>{r.net=r.gross-r.credit;r.balance=r.net-r.paid;
+    tot.gross+=r.gross;tot.fixed+=r.fixed;tot.travel+=r.travel;tot.credit+=r.credit;tot.net+=r.net;tot.paid+=r.paid;
+    if(r.balance>0)tot.owed+=r.balance;else tot.over-=r.balance;});
+  const unused=F-tot.credit;
+  if(unused>0.005) warnings.push(n?`${fmt(unused)} of fundraising is not applied, because some players' dues are smaller than their credit.`:`Fundraising has no travel squad players to apply to.`);
+  if(orphanPaid>0.005) warnings.push(`${fmt(orphanPaid)} in payments belongs to players no longer on the roster.`);
+  list.sort((a,b)=>a.name.localeCompare(b.name));
+  return {list,rows,tot,tripInfo,warnings,nTravel:n,perCredit:n?F/n:0,unused,F};
+}
+function fmt(n){n=Math.round((+n||0)*100)/100; if(Object.is(n,-0))n=0; const s=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0?'−$':'$')+s;}
+/*CALC-END*/
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+const money=v=>{const n=parseFloat(String(v).replace(/[$,\s]/g,''));return isFinite(n)&&n>0?Math.round(n*100)/100:0;};
+const mval=n=>(+n?(+n).toFixed(2):'');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const COLS=['players','trips','payments','config'];
+const local={players:new Map(),trips:new Map(),payments:new Map(),config:new Map()};
+const loaded={};
+const wr=new Map();
+const S={phase:'connecting',code:'',rev:-1,writeSeq:0,offline:false,lockMsg:'',tab:'balances',open:{},filter:'all',armed:null};
+const DEFAULT_CFG={fixed:[{id:'gear',name:'Gear',basis:'split',lines:[{id:'g1',label:'Gear order',amount:0}]},{id:'coach',name:"Coach's pay",basis:'split',lines:[{id:'c1',label:"Coach's pay",amount:0}]}],fundraising:0,rollover:false};
+const cfg=()=>local.config.get('main')||DEFAULT_CFG;
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ---------- saving ---------- */
+const CFG=window.LEDGER_CONFIG||{};
+let sb=null,polling=false;
+function put(col,id,body,delay=300){local[col].set(id,body);sched(col,id,false,delay);render();}
+function del(col,id){local[col].delete(id);sched(col,id,true,0);render();}
+function sched(col,id,isDel,delay){
+  const k=col+'/'+id;let w=wr.get(k);if(!w){w={col,id};wr.set(k,w);}
+  w.del=isDel;w.dirty=true;clearTimeout(w.timer);w.timer=setTimeout(()=>flush(k),delay);setStatus();
+}
+const isBad=e=>/bad_passcode/.test((e&&e.message)||'');
+async function flush(k){
+  const w=wr.get(k);if(!w||w.busy||!w.dirty)return;
+  if(S.phase!=='live'){wr.delete(k);setStatus();return;}
+  w.busy=true;w.dirty=false;
+  try{
+    const body=local[w.col].get(w.id);
+    const res=(w.del||!body)?await sb.rpc('ledger_del',{p_code:S.code,p_col:w.col,p_id:w.id}):await sb.rpc('ledger_put',{p_code:S.code,p_col:w.col,p_id:w.id,p_body:clone(body)});
+    if(res.error) throw res.error;
+    S.failed=false;
+  }catch(e){
+    if(isBad(e)){w.busy=false;wr.clear();lock('The passcode was changed. Enter the new one.');return;}
+    S.failed=true;toast('That change did not save. Check your connection and make it again.');
+  }
+  S.writeSeq++;w.busy=false;
+  if(w.dirty) flush(k); else wr.delete(k);
+  setStatus();
+  if(!wr.size) poll(true);
+}
+function setStatus(){
+  const el=$('status'),lk=$('lockbtn');lk.hidden=S.phase!=='live';
+  if(S.phase==='connecting'){el.dataset.s='saving';el.textContent='Connecting…';}
+  else if(S.phase!=='live'){el.dataset.s='off';el.textContent=S.phase==='setup'?'Not set up':'Locked';}
+  else if(S.offline){el.dataset.s='off';el.textContent='Offline, retrying…';}
+  else if(wr.size){el.dataset.s='saving';el.textContent='Saving…';}
+  else{el.dataset.s='ok';el.textContent='All changes saved';}
+}
+function showBanner(t){const b=$('banner');b.textContent=t;b.hidden=false;}
+let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,4000);}
+
+/* ---------- connection ---------- */
+function apply(data){
+  const next={players:new Map(),trips:new Map(),payments:new Map(),config:new Map()};
+  (data.docs||[]).forEach(d=>{if(next[d.col])next[d.col].set(d.id,d.body||{});});
+  for(const w of wr.values()){if(w.del)next[w.col].delete(w.id);else if(local[w.col].has(w.id))next[w.col].set(w.id,local[w.col].get(w.id));}
+  COLS.forEach(c=>local[c]=next[c]);S.rev=data.rev;render();
+}
+function lock(msg){
+  S.phase='locked';S.code='';S.lockMsg=msg||'';S.rev=-1;COLS.forEach(c=>local[c]=new Map());
+  try{localStorage.removeItem('ledger_code');}catch(e){}
+  setStatus();render();
+}
+async function unlock(code){
+  S.phase='connecting';setStatus();render();
+  let res;try{res=await sb.rpc('ledger_get',{p_code:code,p_rev:-1});}catch(e){res={error:e};}
+  if(res.error||!res.data){
+    if(isBad(res.error)) return lock('That passcode is not right.');
+    S.phase='locked';S.lockMsg='Could not reach the ledger. Check your connection and try again.';setStatus();render();return;
+  }
+  S.code=code;try{localStorage.setItem('ledger_code',code);}catch(e){}
+  S.phase='live';apply(res.data);setStatus();
+}
+async function poll(force){
+  if(S.phase!=='live'||polling||(document.hidden&&!force))return;
+  polling=true;const seq=S.writeSeq;let res;
+  try{res=await sb.rpc('ledger_get',{p_code:S.code,p_rev:S.rev});}catch(e){res={error:e};}
+  polling=false;
+  if(S.phase!=='live')return;
+  if(res.error||!res.data){if(isBad(res.error))return lock('The passcode was changed. Enter the new one.');S.offline=true;setStatus();return;}
+  S.offline=false;
+  if(seq!==S.writeSeq||[...wr.values()].some(w=>w.busy))return poll(true);
+  if(!res.data.unchanged)apply(res.data);
+  setStatus();
+}
+function boot(){
+  if(!CFG.url||!CFG.key||!window.supabase){S.phase='setup';setStatus();render();return;}
+  sb=window.supabase.createClient(CFG.url,CFG.key,{auth:{persistSession:false,autoRefreshToken:false}});
+  setInterval(()=>poll(),4000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
+  let code='';try{code=localStorage.getItem('ledger_code')||'';}catch(e){}
+  if(code)unlock(code);else{S.phase='locked';setStatus();render();}
+}
+
+/* ---------- render ---------- */
+let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;paint();});}
+function paint(){
+  const view=$('view'),ae=document.activeElement;
+  const keep=ae&&ae.id&&view.contains(ae)?{id:ae.id,v:ae.value,s:ae.selectionStart,e:ae.selectionEnd,text:ae.matches('input[type=text],input[type=password],textarea')}:null;
+  const drafts={};view.querySelectorAll('[data-draft]').forEach(el=>drafts[el.id]=el.value);
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  $('tabs').hidden=S.phase!=='live';
+  if(S.phase!=='live'){$('tiles').innerHTML='';
+    view.innerHTML=S.phase==='connecting'?'<div class="empty"><span class="muted">Loading the saved ledger…</span></div>'
+    :S.phase==='setup'?'<div class="empty"><h2>Not connected yet</h2><span>Add your Supabase project URL and anon key to <code>config.js</code>, then redeploy. The README has the steps.</span></div>'
+    :`<form class="empty" id="lockform" style="max-width:420px"><h2>Enter the passcode</h2><span class="muted">The coach or a captain can give it to you. This device remembers it after the first time.</span>
+      ${S.lockMsg?`<div class="banner">${esc(S.lockMsg)}</div>`:''}
+      <label class="field"><span>Passcode</span><input type="password" id="lockcode" autocomplete="current-password" data-draft></label>
+      <div><button class="primary" type="submit">Open the ledger</button></div></form>`;
+    if(S.phase==='locked'&&!keep){const el=$('lockcode');if(el)el.focus();}
+    else if(keep){const el=$(keep.id);if(el){el.value=keep.v;el.focus();}}
+    return;}
+  const C=compute(local.players,local.trips,local.payments,cfg());
+  $('tiles').innerHTML=tiles(C);
+  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,payments:vPayments}[S.tab]||vBalances)(C);
+  for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
+  if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
+}
+function tiles(C){
+  const t=C.tot;
+  return `<div class="tile"><span class="eyebrow">Total dues billed</span><span class="v num">${fmt(t.gross)}</span><span class="small muted">${C.list.length} players</span></div>
+  <div class="tile"><span class="eyebrow">Fundraising applied</span><span class="v num">${fmt(t.credit)}</span><span class="small muted">of ${fmt(C.F)} raised</span></div>
+  <div class="tile"><span class="eyebrow">Collected</span><span class="v num">${fmt(t.paid)}</span><span class="small muted">${local.payments.size} payments logged</span></div>
+  <div class="tile key"><span class="eyebrow">Still owed</span><span class="v num">${fmt(t.owed)}</span><span class="small muted">${C.list.filter(r=>r.balance>0.005).length} players owe</span></div>`;
+}
+function warns(C){return C.warnings.length?`<div class="warnlist">${C.warnings.map(w=>`<div class="banner">${esc(w)}</div>`).join('')}</div>`:'';}
+function pill(r){return r.balance>0.005?'<span class="pill owes">Owes</span>':r.balance<-0.005?'<span class="pill credit">Overpaid</span>':'<span class="pill paid">'+(r.net>0.005?'Paid up':'Nothing due')+'</span>';}
+function squadTag(s){return s==='practice'?'<span class="tag ps">Practice</span>':'<span class="tag">Travel</span>';}
+function playerOpts(sel){return [...local.players].map(([id,p])=>({id,name:p.name||''})).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}"${p.id===sel?' selected':''}>${esc(p.name)}</option>`).join('');}
+function armBtn(key,label,act,attrs){return S.armed===key?`<button class="danger armed" data-act="${act}" ${attrs}>Confirm</button> <button data-act="disarm">Cancel</button>`:`<button class="danger" data-act="arm" data-key="${esc(key)}">${label}</button>`;}
+
+function linesHtml(kind,pid,lines){return `<div class="explines"><span class="eyebrow">Expenses</span>${(lines||[]).map(l=>`<div class="expline"><input type="text" id="${kind}l-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="label" value="${esc(l.label)}" aria-label="Expense" placeholder="Expense"><input type="text" inputmode="decimal" class="money" id="${kind}a-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="amount" value="${mval(l.amount)}" placeholder="0.00" aria-label="Amount"><button class="danger" data-act="delline" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" aria-label="Remove expense">✕</button></div>`).join('')}<div><button data-act="addline" data-kind="${kind}" data-id="${esc(pid)}">Add an expense</button></div></div>`;}
+function mutLines(kind,pid,fn){
+  if(kind==='exp'){const t=local.trips.get(pid);if(!t)return;const lines=clone(Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:uid(),label:'Trip cost',amount:+t.cost}]:[]));fn(lines);put('trips',pid,{...t,expenses:lines});}
+  else setCfg(c=>{const it=(c.fixed||[]).find(i=>i.id===pid);if(!it)return;if(!Array.isArray(it.lines))it.lines=+it.amount?[{id:uid(),label:it.name||'Cost',amount:+it.amount}]:[];fn(it.lines);});
+}
+function vBalances(C){
+  if(!C.list.length) return `<div class="empty"><h2>Start with the roster</h2>
+    <ol><li>Add your players and mark each one travel squad or practice squad.</li>
+    <li>Enter gear, coach's pay, and the fundraising total.</li>
+    <li>Add each trip with its real cost and check off who went. Every balance updates as you go.</li></ol>
+    <div><button class="primary" data-act="tab" data-tab="roster">Add players</button></div></div>`;
+  const rows=C.list.filter(r=>S.filter==='all'||(S.filter==='owes'?r.balance>0.005:r.balance<=0.005));
+  const f=(k,l)=>`<button data-act="filter" data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`;
+  return `${warns(C)}
+  <div class="row between"><div class="filters">${f('all','All')}${f('owes','Owes')}${f('clear','Settled')}</div>
+  <button data-act="copy">Copy balances</button></div>
+  <div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th>Gear &amp; coach</th><th>Travel</th><th>Fundraising</th><th>Dues</th><th>Paid</th><th>Balance</th><th class="l">Status</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td><button class="pname" data-act="open" data-id="${esc(r.id)}" aria-expanded="${!!S.open[r.id]}">${esc(r.name)}</button></td>
+    <td class="l">${squadTag(r.squad)}</td><td class="num">${fmt(r.fixed)}</td><td class="num">${fmt(r.travel)} <span class="muted small">(${r.tripCount})</span></td>
+    <td class="num">${r.credit?fmt(-r.credit):fmt(0)}</td><td class="num">${fmt(r.net)}</td><td class="num">${fmt(r.paid)}</td><td class="num bal">${fmt(r.balance)}</td><td class="l">${pill(r)}</td></tr>
+    ${S.open[r.id]?detail(r):''}`).join('')||'<tr><td colspan="9" class="muted">No players match this filter.</td></tr>'}</tbody>
+  <tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.fixed)}</td><td class="num">${fmt(C.tot.travel)}</td><td class="num">${fmt(-C.tot.credit)}</td><td class="num">${fmt(C.tot.net)}</td><td class="num">${fmt(C.tot.paid)}</td><td class="num">${fmt(C.tot.net-C.tot.paid)}</td><td></td></tr></tfoot></table></div>
+  <p class="small muted">Dues = gear and coach's pay (travel squad only) + a share of each trip taken − fundraising credit. The number beside Travel is trips taken.</p>`;
+}
+function detail(r){
+  const pays=[...local.payments].filter(([id,p])=>p.playerId===r.id).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  return `<tr class="detail"><td colspan="9"><div class="detailgrid">
+  <div><span class="eyebrow">How the dues add up</span><div class="lines">
+    ${r.items.map(i=>`<span>${esc(i.label)}</span><span class="num">${fmt(i.amount)}</span>`).join('')||'<span class="muted">No charges yet</span><span></span>'}
+    ${r.credit?`<span>Fundraising credit</span><span class="num">${fmt(-r.credit)}</span>`:''}
+    <span class="tot">Dues</span><span class="tot num">${fmt(r.net)}</span>
+    ${pays.map(([id,p])=>`<span>Paid ${esc(p.date||'')}${p.note?' · '+esc(p.note):''}</span><span class="num">${fmt(-p.amount)}</span>`).join('')}
+    <span class="tot">Balance</span><span class="tot num">${fmt(r.balance)}</span></div></div>
+  <div><span class="eyebrow">Record a payment</span><div class="row">
+    <label class="field"><span>Amount</span><input type="text" inputmode="decimal" class="money" id="qa-${esc(r.id)}" data-draft placeholder="${r.balance>0?mval(Math.round(r.balance*100)/100):'0.00'}"></label>
+    <label class="field"><span>Date</span><input type="date" id="qd-${esc(r.id)}" data-draft value="${today()}"></label>
+    <label class="field grow"><span>Note</span><input type="text" id="qn-${esc(r.id)}" data-draft placeholder="Venmo, cash, check #"></label>
+    <button class="primary" data-act="quickpay" data-id="${esc(r.id)}">Record</button></div>
+    ${r.balance>0.005?`<div><button class="link" data-act="payfull" data-id="${esc(r.id)}">Fill in the full balance of ${fmt(r.balance)}</button></div>`:''}</div>
+  </div></td></tr>`;
+}
+function vTrips(C){
+  const ps=C.list;
+  const trips=[...local.trips].sort((a,b)=>(a[1].date||'9').localeCompare(b[1].date||'9')||(a[1].name||'').localeCompare(b[1].name||''));
+  return `<div class="card"><h2>Add a trip</h2><div class="row">
+    <label class="field grow"><span>Tournament or weekend</span><input type="text" id="nt-name" data-draft placeholder="Seattle weekend"></label>
+    <label class="field"><span>Date</span><input type="date" id="nt-date" data-draft></label>
+    <button class="primary" data-act="addtrip">Add trip</button></div>
+    <span class="small muted">Each new trip starts with vans, gas, and lodging lines. Add flights or anything else on the trip itself. The total is divided evenly among the players you check.</span></div>
+  ${trips.length?'':'<div class="empty"><span class="muted">No trips yet. Each trip you add appears here with a checklist of who traveled.</span></div>'}
+  ${trips.map(([id,t])=>{const info=C.tripInfo.get(id)||{count:0,share:0};const set=new Set(t.travelers||[]);return `<div class="card">
+    <div class="row">
+      <label class="field grow"><span>Trip</span><input type="text" id="tn-${esc(id)}" data-c="trip" data-id="${esc(id)}" data-k="name" value="${esc(t.name)}"></label>
+      <label class="field"><span>Date</span><input type="date" id="td-${esc(id)}" data-c="trip" data-id="${esc(id)}" data-k="date" value="${esc(t.date||'')}"></label>
+      <div class="field"><span>Total cost</span><span class="share num">${fmt(info.cost||0)}</span></div>
+      <div class="field"><span>Per traveler</span><span class="share num">${info.count?fmt(info.share):'—'}</span></div>
+    </div>
+    ${linesHtml('exp',id,Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]))}
+    <div class="row between"><span class="eyebrow">${info.count} traveling</span><span class="row">
+      <button data-act="alltravel" data-id="${esc(id)}">Check all travel squad</button><button data-act="clearall" data-id="${esc(id)}">Clear</button>${armBtn('trip:'+id,'Delete trip','deltrip',`data-id="${esc(id)}"`)}</span></div>
+    ${ps.length?`<div class="checks">${ps.map(p=>`<label><input type="checkbox" id="tv-${esc(id)}-${esc(p.id)}" data-c="trav" data-id="${esc(id)}" data-p="${esc(p.id)}"${set.has(p.id)?' checked':''}><span>${esc(p.name)}</span>${p.squad==='practice'?'<span class="tag ps">P</span>':''}</label>`).join('')}</div>`:'<span class="muted small">Add players on the Roster tab to check off travelers.</span>'}
+  </div>`;}).join('')}`;
+}
+function vRoster(C){
+  const trips=[...local.trips].sort((a,b)=>(a[1].date||'9').localeCompare(b[1].date||'9')||(a[1].name||'').localeCompare(b[1].name||''));
+  return `<div class="card"><h2>Add players</h2><div class="row">
+    <label class="field grow"><span>Names, one per line</span><textarea id="np-names" data-draft placeholder="First Last&#10;First Last"></textarea></label>
+    <label class="field"><span>Squad</span><select id="np-squad" data-draft><option value="travel">Travel squad</option><option value="practice">Practice squad</option></select></label>
+    <button class="primary" data-act="addplayers">Add players</button></div>
+    <span class="small muted">Travel squad pays gear, coach's pay, and travel, and receives fundraising credit. Practice squad pays only for the trips they take.</span></div>
+  ${C.list.length?`<div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th class="l">Trips traveled</th><th>Dues</th><th></th></tr></thead><tbody>
+  ${C.list.map(r=>`<tr><td><input type="text" class="bare" id="pn-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="name" value="${esc(r.name)}" aria-label="Player name"></td>
+    <td class="l"><select id="ps-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="squad" aria-label="Squad" style="width:auto"><option value="travel"${r.squad==='travel'?' selected':''}>Travel squad</option><option value="practice"${r.squad==='practice'?' selected':''}>Practice squad</option></select></td>
+    <td class="l" style="white-space:normal"><div class="chips">${trips.map(([tid,t])=>`<button class="chip" id="rt-${esc(r.id)}-${esc(tid)}" data-act="toggletrip" data-id="${esc(tid)}" data-p="${esc(r.id)}" aria-pressed="${(t.travelers||[]).includes(r.id)}">${esc(t.name||'Untitled trip')}</button>`).join('')||'<span class="muted small">No trips yet</span>'}</div></td><td class="num">${fmt(r.net)}</td><td>${armBtn('player:'+r.id,'Remove','delplayer',`data-id="${esc(r.id)}"`)}</td></tr>`).join('')}
+  </tbody></table></div><p class="small muted">Click a trip beside a player to mark that he traveled; click again to remove him. The same checkmarks appear on the Trips tab. ${C.nTravel} travel squad, ${C.list.length-C.nTravel} practice squad.</p>`:'<div class="empty"><span class="muted">No players yet. Paste your roster above.</span></div>'}`;
+}
+function vCosts(C){
+  const c=cfg();const per=C.list.find(r=>r.squad==='travel');
+  return `${warns(C)}<div class="card"><h2>Travel squad costs</h2>
+    <span class="small muted">Charged to travel squad players only, whether or not they travel.</span>
+    ${(c.fixed||[]).map(it=>`<div class="costblock"><div class="row">
+      <label class="field grow"><span>Cost</span><input type="text" id="fn-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="name" value="${esc(it.name)}"></label>
+      <label class="field"><span>Entered as</span><select id="fb-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="basis"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
+      <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span></div>
+      <button class="danger" data-act="delfixed" data-id="${esc(it.id)}">Remove category</button></div>
+      ${linesHtml('fl',it.id,Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]))}</div>`).join('')}
+    <div class="row between"><button data-act="addfixed">Add a category</button>
+    <span>Each travel squad player owes <strong class="num">${fmt(per?per.fixed:0)}</strong> before travel</span></div></div>
+  <div class="card"><h2>Fundraising</h2><div class="row">
+    <label class="field"><span>Total raised</span><input type="text" inputmode="decimal" class="money" id="fr-total" data-c="fund" value="${mval(c.fundraising)}" placeholder="0.00"></label>
+    <div class="field"><span>Credit per travel squad player</span><span class="share num">${C.nTravel?fmt(C.perCredit):'—'}</span></div>
+    <div class="field"><span>Travel squad players</span><span class="share num">${C.nTravel}</span></div></div>
+    <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>If a player's credit is larger than his dues, pass the extra to travel squad players who still owe</span></label>
+    <span class="small muted">Fundraising is split evenly across the travel squad. A credit never pushes a player's dues below zero.</span></div>`;
+}
+function vPayments(C){
+  const pays=[...local.payments].sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||'')||(b[1].at||0)-(a[1].at||0));
+  return `<div class="card"><h2>Record a payment</h2>${local.players.size?`<div class="row">
+    <label class="field grow"><span>Player</span><select id="pp-player" data-draft>${playerOpts()}</select></label>
+    <label class="field"><span>Amount</span><input type="text" inputmode="decimal" class="money" id="pp-amt" data-draft placeholder="0.00"></label>
+    <label class="field"><span>Date</span><input type="date" id="pp-date" data-draft value="${today()}"></label>
+    <label class="field grow"><span>Note</span><input type="text" id="pp-note" data-draft placeholder="Venmo, cash, check #"></label>
+    <button class="primary" data-act="addpay">Record</button></div>`:'<span class="muted">Add players on the Roster tab first.</span>'}</div>
+  ${pays.length?`<div class="scroll"><table><thead><tr><th>Date</th><th class="l">Player</th><th>Amount</th><th class="l">Note</th><th></th></tr></thead><tbody>
+  ${pays.map(([id,p])=>{const pl=local.players.get(p.playerId);return `<tr><td class="num">${esc(p.date||'')}</td><td class="l">${pl?esc(pl.name):'<span class="muted">Removed player</span>'}</td><td class="num">${fmt(p.amount)}</td><td class="l" style="white-space:normal">${esc(p.note||'')}</td><td>${armBtn('pay:'+id,'Delete','delpay',`data-id="${esc(id)}"`)}</td></tr>`;}).join('')}
+  </tbody><tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.paid)}</td><td></td><td></td></tr></tfoot></table></div>`:'<div class="empty"><span class="muted">No payments logged yet. Each one you record lowers that player\'s balance.</span></div>'}`;
+}
+
+/* ---------- actions ---------- */
+function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
+function addPayment(pid,amt,date,note){
+  if(!local.players.has(pid)) return toast('Pick a player first.');
+  if(!amt) return toast('Enter a payment amount greater than zero.');
+  put('payments',uid(),{playerId:pid,amount:amt,date:date||today(),note:(note||'').slice(0,200),at:Date.now()},0);toast('Payment recorded');return true;
+}
+const clearEls=(...ids)=>ids.forEach(i=>{const e=$(i);if(e)e.value='';});
+const ACT={
+  tab(d){S.tab=d.tab;S.armed=null;try{history.replaceState(null,'','#'+d.tab);}catch(e){}render();},
+  filter(d){S.filter=d.f;render();},
+  lock(){lock('');},
+  open(d){S.open[d.id]=!S.open[d.id];render();},
+  arm(d){S.armed=d.key;render();}, disarm(){S.armed=null;render();},
+  addplayers(){
+    const names=$('np-names').value.split(/\r?\n/).map(s=>s.trim().slice(0,80)).filter(Boolean),squad=$('np-squad').value;
+    if(!names.length) return toast('Type at least one name.');
+    names.forEach(n=>put('players',uid(),{name:n,squad},0));clearEls('np-names');toast(names.length+(names.length===1?' player added':' players added'));
+  },
+  delplayer(d){S.armed=null;del('players',d.id);},
+  addtrip(){
+    const name=$('nt-name').value.trim().slice(0,80);if(!name) return toast('Give the trip a name.');
+    put('trips',uid(),{name,date:$('nt-date').value||'',expenses:[{id:uid(),label:'Vans',amount:0},{id:uid(),label:'Gas',amount:0},{id:uid(),label:'AirBnB/hotel',amount:0}],travelers:[]},0);clearEls('nt-name','nt-date');
+  },
+  deltrip(d){S.armed=null;del('trips',d.id);},
+  alltravel(d){const t=local.trips.get(d.id);if(!t)return;const s=new Set(t.travelers||[]);local.players.forEach((p,id)=>{if(p.squad!=='practice')s.add(id);});put('trips',d.id,{...t,travelers:[...s]});},
+  toggletrip(d){const t=local.trips.get(d.id);if(!t)return;const s=new Set(t.travelers||[]);s.has(d.p)?s.delete(d.p):s.add(d.p);put('trips',d.id,{...t,travelers:[...s]},500);},
+  clearall(d){const t=local.trips.get(d.id);if(t)put('trips',d.id,{...t,travelers:[]});},
+  addfixed(){setCfg(c=>{c.fixed=c.fixed||[];c.fixed.push({id:uid(),name:'New category',basis:'split',lines:[{id:uid(),label:'',amount:0}]});});},
+  delfixed(d){setCfg(c=>{c.fixed=(c.fixed||[]).filter(i=>i.id!==d.id);});},
+  addline(d){mutLines(d.kind,d.id,ls=>ls.push({id:uid(),label:'',amount:0}));},
+  delline(d){mutLines(d.kind,d.id,ls=>{const i=ls.findIndex(l=>l.id===d.l);if(i>=0)ls.splice(i,1);else if(d.l==='legacy')ls.length=0;});},
+  addpay(){if(addPayment($('pp-player').value,money($('pp-amt').value),$('pp-date').value,$('pp-note').value))clearEls('pp-amt','pp-note');},
+  quickpay(d){if(addPayment(d.id,money($('qa-'+d.id).value),$('qd-'+d.id).value,$('qn-'+d.id).value))clearEls('qa-'+d.id,'qn-'+d.id);},
+  payfull(d){const C=compute(local.players,local.trips,local.payments,cfg()),r=C.rows.get(d.id),el=$('qa-'+d.id);if(r&&el){el.value=(Math.round(r.balance*100)/100).toFixed(2);el.focus();}},
+  delpay(d){S.armed=null;del('payments',d.id);},
+  copy(){
+    const C=compute(local.players,local.trips,local.payments,cfg());
+    const txt=['Player\tSquad\tDues\tPaid\tBalance',...C.list.map(r=>[r.name,r.squad,fmt(r.net),fmt(r.paid),fmt(r.balance)].join('\t'))].join('\n');
+    const fb=()=>{const ta=document.createElement('textarea');ta.value=txt;ta.setAttribute('aria-label','Balances');$('view').prepend(ta);ta.select();toast('Copying is blocked here. The balances are selected at the top for you to copy.');};
+    try{navigator.clipboard.writeText(txt).then(()=>toast('Balances copied'),fb);}catch(e){fb();}
+  }
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&ACT[b.dataset.act])ACT[b.dataset.act](b.dataset);});
+document.addEventListener('change',e=>{
+  const el=e.target,d=el.dataset;if(!d.c)return;
+  if(d.c==='trip'){const t=local.trips.get(d.id);if(!t)return;put('trips',d.id,{...t,[d.k]:d.k==='cost'?money(el.value):el.value.trim().slice(0,80)});}
+  else if(d.c==='line'){mutLines(d.kind,d.id,ls=>{const l=ls.find(x=>x.id===d.l)||(d.l==='legacy'?ls[0]:null);if(l)l[d.k]=d.k==='amount'?money(el.value):el.value.trim().slice(0,60);});}
+  else if(d.c==='trav'){const t=local.trips.get(d.id);if(!t)return;const s=new Set(t.travelers||[]);el.checked?s.add(d.p):s.delete(d.p);put('trips',d.id,{...t,travelers:[...s]},500);}
+  else if(d.c==='player'){const p=local.players.get(d.id);if(!p)return;const v=d.k==='name'?(el.value.trim().slice(0,80)||p.name):el.value;put('players',d.id,{...p,[d.k]:v});}
+  else if(d.c==='fixed'){setCfg(c=>{const it=(c.fixed||[]).find(i=>i.id===d.id);if(it)it[d.k]=d.k==='amount'?money(el.value):d.k==='name'?el.value.trim().slice(0,60):el.value;});}
+  else if(d.c==='fund'){setCfg(c=>{c.fundraising=money(el.value);});}
+  else if(d.c==='roll'){setCfg(c=>{c.rollover=el.checked;});}
+});
+document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
+try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','payments'].includes(h))S.tab=h;}catch(e){}
+setStatus();render();boot();
+</script>
+</body>
+</html>
