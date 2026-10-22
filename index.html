@@ -163,7 +163,7 @@ const sumLines=a=>(a||[]).reduce((t,l)=>t+Math.max(0,+l.amount||0),0);
 const tripCost=t=>Array.isArray(t.expenses)?sumLines(t.expenses):Math.max(0,+t.cost||0);
 const fixedAmt=it=>Array.isArray(it.lines)?sumLines(it.lines):Math.max(0,+it.amount||0);
 function compute(players, trips, payments, cfg){
-  const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',items:[],fixed:0,travel:0,tripCount:0,credit:0,paid:0}));
+  const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',qualified:!!p.fundQualified,items:[],fixed:0,travel:0,tripCount:0,credit:0,paid:0}));
   const rows=new Map(list.map(r=>[r.id,r]));
   const tsq=list.filter(r=>r.squad==='travel'), n=tsq.length, warnings=[];
   (cfg.fixed||[]).forEach(it=>{
@@ -182,11 +182,12 @@ function compute(players, trips, payments, cfg){
   });
   list.forEach(r=>r.gross=r.fixed+r.travel);
   const F=Math.max(0,+cfg.fundraising||0);
-  if(n){
+  const qMode=cfg.fundMode==='qualified', elig=qMode?tsq.filter(r=>r.qualified):tsq, ne=elig.length;
+  if(ne){
     if(cfg.rollover){
-      let rem=F; const s=[...tsq].sort((a,b)=>a.gross-b.gross);
-      s.forEach((r,i)=>{const level=rem/(n-i); r.credit=Math.min(r.gross,level); rem-=r.credit;});
-    } else tsq.forEach(r=>r.credit=Math.min(r.gross,F/n));
+      let rem=F; const s=[...elig].sort((a,b)=>a.gross-b.gross);
+      s.forEach((r,i)=>{const level=rem/(ne-i); r.credit=Math.min(r.gross,level); rem-=r.credit;});
+    } else elig.forEach(r=>r.credit=Math.min(r.gross,F/ne));
   }
   let orphanPaid=0;
   [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r) r.paid+=a; else orphanPaid+=a;});
@@ -195,10 +196,10 @@ function compute(players, trips, payments, cfg){
     tot.gross+=r.gross;tot.fixed+=r.fixed;tot.travel+=r.travel;tot.credit+=r.credit;tot.net+=r.net;tot.paid+=r.paid;
     if(r.balance>0)tot.owed+=r.balance;else tot.over-=r.balance;});
   const unused=F-tot.credit;
-  if(unused>0.005) warnings.push(n?`${fmt(unused)} of fundraising is not applied, because some players' dues are smaller than their credit.`:`Fundraising has no travel squad players to apply to.`);
+  if(unused>0.005) warnings.push(ne?`${fmt(unused)} of fundraising is not applied, because some players' dues are smaller than their credit.`:qMode?`Fundraising is set to qualified players only, and no travel squad players are checked, so none of it is applied.`:`Fundraising has no travel squad players to apply to.`);
   if(orphanPaid>0.005) warnings.push(`${fmt(orphanPaid)} in payments belongs to players no longer on the roster.`);
   list.sort((a,b)=>a.name.localeCompare(b.name));
-  return {list,rows,tot,tripInfo,warnings,nTravel:n,perCredit:n?F/n:0,unused,F};
+  return {list,rows,tot,tripInfo,warnings,nTravel:n,nElig:ne,qMode,perCredit:ne?F/ne:0,unused,F};
 }
 function fmt(n){n=Math.round((+n||0)*100)/100; if(Object.is(n,-0))n=0; const s=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0?'−$':'$')+s;}
 /*CALC-END*/
@@ -408,10 +409,10 @@ function vRoster(C){
     <label class="field"><span>Squad</span><select id="np-squad" data-draft><option value="travel">Travel squad</option><option value="practice">Practice squad</option></select></label>
     <button class="primary" data-act="addplayers">Add players</button></div>
     <span class="small muted">Travel squad pays gear, coach's pay, USCCS costs, and travel, and receives fundraising credit. Practice squad pays only for the trips they take.</span></div>
-  ${C.list.length?`<div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th class="l">Trips traveled</th><th>Dues</th><th></th></tr></thead><tbody>
+  ${C.list.length?`<div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th class="l">Trips traveled</th><th class="l">20+ donors</th><th>Dues</th><th></th></tr></thead><tbody>
   ${C.list.map(r=>`<tr><td><input type="text" class="bare" id="pn-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="name" value="${esc(r.name)}" aria-label="Player name"></td>
     <td class="l"><select id="ps-${esc(r.id)}" data-c="player" data-id="${esc(r.id)}" data-k="squad" aria-label="Squad" style="width:auto"><option value="travel"${r.squad==='travel'?' selected':''}>Travel squad</option><option value="practice"${r.squad==='practice'?' selected':''}>Practice squad</option></select></td>
-    <td class="l" style="white-space:normal"><div class="chips">${trips.map(([tid,t])=>`<button class="chip" id="rt-${esc(r.id)}-${esc(tid)}" data-act="toggletrip" data-id="${esc(tid)}" data-p="${esc(r.id)}" aria-pressed="${(t.travelers||[]).includes(r.id)}">${esc(t.name||'Untitled trip')}</button>`).join('')||'<span class="muted small">No trips yet</span>'}</div></td><td class="num">${fmt(r.net)}</td><td>${armBtn('player:'+r.id,'Remove','delplayer',`data-id="${esc(r.id)}"`)}</td></tr>`).join('')}
+    <td class="l" style="white-space:normal"><div class="chips">${trips.map(([tid,t])=>`<button class="chip" id="rt-${esc(r.id)}-${esc(tid)}" data-act="toggletrip" data-id="${esc(tid)}" data-p="${esc(r.id)}" aria-pressed="${(t.travelers||[]).includes(r.id)}">${esc(t.name||'Untitled trip')}</button>`).join('')||'<span class="muted small">No trips yet</span>'}</div></td><td class="l">${r.squad==='travel'?`<input type="checkbox" id="rq-${esc(r.id)}" data-c="qual" data-p="${esc(r.id)}"${r.qualified?' checked':''} aria-label="Invited 20+ donors" style="width:16px;height:16px;accent-color:var(--accent)">`:'<span class="muted small">—</span>'}</td><td class="num">${fmt(r.net)}</td><td>${armBtn('player:'+r.id,'Remove','delplayer',`data-id="${esc(r.id)}"`)}</td></tr>`).join('')}
   </tbody></table></div><p class="small muted">Click a trip beside a player to mark that he traveled; click again to remove him. The same checkmarks appear on the Trips tab. ${C.nTravel} travel squad, ${C.list.length-C.nTravel} practice squad.</p>`:'<div class="empty"><span class="muted">No players yet. Paste your roster above.</span></div>'}`;
 }
 function vCosts(C){
@@ -428,10 +429,19 @@ function vCosts(C){
     <span>Each travel squad player owes <strong class="num">${fmt(per?per.fixed:0)}</strong> before travel, including USCCS costs</span></div></div>
   <div class="card"><h2>Fundraising</h2><div class="row">
     <label class="field"><span>Total raised</span><input type="text" inputmode="decimal" class="money" id="fr-total" data-c="fund" value="${mval(c.fundraising)}" placeholder="0.00"></label>
-    <div class="field"><span>Credit per travel squad player</span><span class="share num">${C.nTravel?fmt(C.perCredit):'—'}</span></div>
-    <div class="field"><span>Travel squad players</span><span class="share num">${C.nTravel}</span></div></div>
-    <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>If a player's credit is larger than his dues, pass the extra to travel squad players who still owe</span></label>
-    <span class="small muted">Fundraising is split evenly across the travel squad. A credit never pushes a player's dues below zero.</span></div>`;
+    <label class="field grow"><span>Split fundraising among</span><select id="fr-mode" data-c="fmode"><option value="all"${C.qMode?'':' selected'}>All travel squad players, equally</option><option value="qualified"${C.qMode?' selected':''}>Only players who invited 20+ donors</option></select></label></div>
+    <div class="row">
+    <div class="field"><span>Players sharing it</span><span class="share num">${C.nElig}${C.qMode?' of '+C.nTravel:''}</span></div>
+    <div class="field"><span>Credit per player</span><span class="share num">${C.nElig?fmt(C.perCredit):'—'}</span></div></div>
+    ${fundChecklist(C)}
+    <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>If a player's credit is larger than his dues, pass the extra to players sharing fundraising who still owe</span></label>
+    <span class="small muted">${C.qMode?'Fundraising is split evenly among the checked travel squad players. Unchecked players get no credit.':'Fundraising is split evenly across the travel squad.'} A credit never pushes a player's dues below zero.</span></div>`;
+}
+function fundChecklist(C){
+  const tsq=C.list.filter(r=>r.squad==='travel');
+  if(!tsq.length) return '<span class="muted small">Add travel squad players on the Roster tab.</span>';
+  return `<div class="row between"><span class="eyebrow">Invited 20+ donors · ${tsq.filter(r=>r.qualified).length} checked</span>${C.qMode?'':'<span class="small muted">Not used while the split is set to all travel squad players.</span>'}</div>
+  <div class="checks">${tsq.map(r=>`<label><input type="checkbox" id="fq-${esc(r.id)}" data-c="qual" data-p="${esc(r.id)}"${r.qualified?' checked':''}><span>${esc(r.name)}</span></label>`).join('')}</div>`;
 }
 function vUsccs(C){
   const it=(cfg().fixed||[]).find(i=>i.id==='usccs'),tot=fixedAmt(it),n=C.nTravel;
@@ -510,6 +520,8 @@ document.addEventListener('change',e=>{
   else if(d.c==='fixed'){setCfg(c=>{const it=(c.fixed||[]).find(i=>i.id===d.id);if(it)it[d.k]=d.k==='amount'?money(el.value):d.k==='name'?el.value.trim().slice(0,60):el.value;});}
   else if(d.c==='fund'){setCfg(c=>{c.fundraising=money(el.value);});}
   else if(d.c==='roll'){setCfg(c=>{c.rollover=el.checked;});}
+  else if(d.c==='fmode'){setCfg(c=>{c.fundMode=el.value==='qualified'?'qualified':'all';});}
+  else if(d.c==='qual'){const p=local.players.get(d.p);if(p)put('players',d.p,{...p,fundQualified:el.checked},0);}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
