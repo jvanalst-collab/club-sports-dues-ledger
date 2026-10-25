@@ -529,6 +529,8 @@ function vLedger(C){
     </div>
     <span class="small muted">${L.nAuto} ${L.nAuto===1?'entry is':'entries are'} posted automatically from the expenses, payments, and fundraising total you enter in the app. Change those amounts on their own tabs and the ledger updates.</span>
     ${L.manDues>0.005&&duesLogged>0.005?`<div class="banner">Member dues entered here or imported: ${fmt(L.manDues)}. Dues from the Payments tab are also posted automatically (${fmt(duesLogged)}). If those are the same deposits, delete the imported ones so dues are not counted twice.</div>`:''}
+    ${L.es.some(e=>e.auto&&e.type==='exp')&&L.es.some(e=>!e.auto&&e.type==='exp')?`<div class="row between"><span class="small">Give expenses posted by the app the same dates as the matching entries in the Club Sports ledger you imported.</span><button data-act="lmatch">Match dates to Club Sports entries</button></div>`:''}
+    ${matchPanel()}
     ${L.nDup?`<div class="banner">${L.nDup} automatic ${L.nDup===1?'entry has':'entries have'} the same amount as an entry you added or imported, marked "Possible duplicate" below. If they are the same charge, delete the one you added or imported.</div>`:''}
   </div>
   <div class="card"><div class="row between"><h2>Add an entry</h2><button data-act="limp">${S.limp?'Hide import':'Import rows from a spreadsheet'}</button></div>
@@ -575,6 +577,26 @@ function ledAutoEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="f
     ${fld('category','Category','170px',' list="lcats"')}
     <label class="field"><span>Fund</span><select id="lo-${i}-source" data-c="lov" data-id="${i}" data-k="source" style="width:auto">${fundOpts(e.type,e.source)}</select></label>
     ${fld('period','Period','70px')}${fld('po','PO#','110px')}${fld('method','Method','140px')}${fld('notes','Notes')}</div></td></tr>`;}
+function ledMatchDates(){
+  const L=ledCalc(),ck=e=>(+e.amount).toFixed(2),by=(arr)=>{const m=new Map();arr.forEach(e=>{const k=ck(e);m.set(k,[...(m.get(k)||[]),e]);});return m;};
+  const au=L.es.filter(e=>e.auto&&e.type==='exp'),man=by(L.es.filter(e=>!e.auto&&e.type==='exp')),aum=by(au);
+  const res={matched:[],ambiguous:[],none:[]};
+  au.forEach(e=>{const ms=man.get(ck(e))||[];
+    if(!ms.length){res.none.push(e);return;}
+    if(ms.length>1||aum.get(ck(e)).length>1){res.ambiguous.push(e);return;}
+    const m=ms[0];if(!m.date){res.none.push(e);return;}
+    res.matched.push({desc:e.desc,amount:e.amount,from:e.date,to:m.date,src:m.desc});
+    if(m.date!==e.date){const o={...(local.config.get(e.id)||{}),date:m.date};put('config',e.id,o,0);}
+  });
+  return res;
+}
+function matchPanel(){const r=S.lmatch;if(!r)return '';
+  const li=a=>a.map(x=>`<li>${x}</li>`).join('');
+  return `<div class="costblock"><div class="row between"><strong>Date match results</strong><button data-act="lmatchclose">Close</button></div>
+    <span class="small">${r.matched.length} matched${r.ambiguous.length?`, ${r.ambiguous.length} skipped because more than one entry has the same amount`:''}${r.none.length?`, ${r.none.length} with no matching Club Sports entry`:''}.</span>
+    ${r.matched.length?`<ul class="small" style="margin:0;padding-left:18px">${li(r.matched.map(m=>`${esc(m.desc)} <span class="num">${fmt(m.amount)}</span> → <strong>${usDate(m.to)}</strong> <span class="muted">(${esc(m.src)}${m.from&&m.from!==m.to?`, was ${usDate(m.from)}`:''})</span>`))}</ul>`:''}
+    ${r.ambiguous.length?`<span class="small muted">Skipped, set by hand: ${r.ambiguous.map(e=>esc(e.desc)+' '+fmt(e.amount)).join('; ')}</span>`:''}
+    ${r.none.length?`<span class="small muted">No match: ${r.none.map(e=>esc(e.desc)+' '+fmt(e.amount)).join('; ')}</span>`:''}</div>`;}
 function ledKey(e){return [e.date,(e.category||'').trim().toLowerCase(),(e.desc||'').trim().toLowerCase(),e.type,(+e.amount).toFixed(2),String(e.po||'').trim()].join('|');}
 function ledImport(text){
   const have=new Set(ledEntries().map(ledKey));let n=0,dup=0,skip=0,seq=Date.now();
@@ -622,6 +644,8 @@ const ACT={
   delfixed(d){setCfg(c=>{c.fixed=(c.fixed||[]).filter(i=>i.id!==d.id);});},
   addline(d){mutLines(d.kind,d.id,ls=>ls.push({id:uid(),label:'',amount:0}));},
   delline(d){mutLines(d.kind,d.id,ls=>{const i=ls.findIndex(l=>l.id===d.l);if(i>=0)ls.splice(i,1);else if(d.l==='legacy')ls.length=0;});},
+  lmatch(){S.lmatch=ledMatchDates();toast(S.lmatch.matched.length+' dates matched');render();},
+  lmatchclose(){S.lmatch=null;render();},
   limp(){S.limp=!S.limp;render();},
   lfilter(d){S.lfilter=d.f;render();},
   lopen(d){S.lopen=S.lopen||{};S.lopen[d.id]=!S.lopen[d.id];render();},
