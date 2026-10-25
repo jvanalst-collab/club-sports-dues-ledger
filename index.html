@@ -14,6 +14,7 @@ html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!i
   --accent:#0a6a43; --accent-fg:#ffffff; --mark:#f4d21f; --mark-fg:#2a2400;
   --good:#1a7a4b; --warn:#a65f00; --bad:#b0362a;
   --good-bg:#dff1e6; --warn-bg:#fbeccd; --bad-bg:#f8dfdb;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c-other:#a3aaa5;
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:6px;
@@ -22,12 +23,14 @@ html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!i
   --bg:#0e1411; --surface:#161f1a; --sunk:#1d2822; --fg:#e7eee8; --muted:#93a399; --line:#2b3931;
   --accent:#4cc489; --accent-fg:#06180f; --mark:#f4d21f; --mark-fg:#2a2400;
   --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
-  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b; color-scheme:dark } }
+  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c-other:#6b766f; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0e1411; --surface:#161f1a; --sunk:#1d2822; --fg:#e7eee8; --muted:#93a399; --line:#2b3931;
   --accent:#4cc489; --accent-fg:#06180f; --mark:#f4d21f; --mark-fg:#2a2400;
   --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
-  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b; color-scheme:dark }
+  --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c-other:#6b766f; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
@@ -136,6 +139,27 @@ input.ldate.nodate{color:var(--muted)}
 tr.flash td{animation:lflash 1.6s ease-out}
 @keyframes lflash{0%,30%{background:var(--good-bg)}100%{background:transparent}}
 @media (prefers-reduced-motion:reduce){tr.flash td{animation:none;background:var(--good-bg)}}
+.bgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:760px){.bgrid{grid-template-columns:minmax(0,1fr)}}
+.bpanel{display:flex;flex-direction:column;gap:10px;min-width:0}
+.bchart{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.donutwrap{position:relative;width:180px;max-width:100%;flex:none}
+.donut{width:100%;height:auto;display:block}
+.donut path{transition:opacity .15s}
+.dcenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;padding:0 46px}
+.dval{font-family:var(--display);font-weight:700;font-size:19px;line-height:1.1}
+.dlbl{font-size:11px;color:var(--muted);line-height:1.2;margin-top:2px;overflow-wrap:anywhere}
+.blegend{flex:1 1 200px;min-width:0;width:auto;font-size:13px}
+.blegend td{padding:4px 6px;border-bottom:1px solid var(--line);white-space:normal}
+.blegend tr{cursor:default}
+.blegend tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+[data-bseg].dim{opacity:.35}
+.meter{display:flex;flex-direction:column;gap:6px}
+.mtrack{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.mfill{height:100%;border-radius:5px;background:var(--accent)}
+.mfill.over{background:var(--bad)}
+@media (prefers-reduced-motion:reduce){.donut path{transition:none}}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </style>
@@ -567,7 +591,8 @@ function vLedger(C){
     <td class="l">${esc(e.period||'')}</td><td class="l">${esc(e.po||'')}</td><td class="l">${esc(e.method||'')}</td></tr>
     ${(S.lopen||{})[e.id]?(e.auto?ledAutoEdit(e):ledEdit(e)):''}`).join('')||'<tr><td colspan="10" class="muted">No entries match this filter.</td></tr>'}</tbody>
   <tfoot><tr><td>Totals</td><td></td><td></td><td></td><td class="num">${fmt(L.t.rev)}</td><td class="num">${fmt(L.t.exp)}</td><td class="num">${fmt(L.bal)}</td><td colspan="3"></td></tr></tfoot></table></div>`
-  :'<div class="empty"><span class="muted">No ledger entries yet. Add one above, or import the rows from the Club Sports sheet.</span></div>'}`;
+  :'<div class="empty"><span class="muted">No ledger entries yet. Add one above, or import the rows from the Club Sports sheet.</span></div>'}
+  ${vBudget(L)}`;
 }
 function ledEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="field"${w?'':' style="flex:1 1 200px"'}><span>${l}</span><input type="text" id="le-${i}-${k}" data-c="led" data-id="${i}" data-k="${k}" value="${esc(k==='amount'?mval(e.amount):e[k]||'')}"${w?` style="width:${w}"`:''}${extra}></label>`;
   return `<tr class="detail"><td colspan="10"><div class="row">
@@ -616,6 +641,54 @@ function ledImport(text){
   });
   return {n,dup,skip};
 }
+
+
+/* ---------- budget tracker ---------- */
+function budgetGroups(es,type){
+  const m=new Map();es.filter(e=>(type==='exp')===(e.type==='exp')).forEach(e=>{const k=(e.category||'').trim()||'Uncategorized';m.set(k,(m.get(k)||0)+(+e.amount||0));});
+  let arr=[...m].map(([name,v])=>({name,v})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+  const total=arr.reduce((t,x)=>t+x.v,0);
+  if(arr.length>6){const rest=arr.slice(5);arr=[...arr.slice(0,5),{name:'Other',v:rest.reduce((t,x)=>t+x.v,0),other:true,n:rest.length,names:rest.map(x=>x.name)}];}
+  const named=arr.filter(x=>!x.other).map(x=>x.name).sort((a,b)=>a.localeCompare(b));
+  arr.forEach(x=>{x.color=x.other?'var(--c-other)':`var(--c${named.indexOf(x.name)+1})`;x.pct=total?x.v/total:0;});
+  return {arr,total};
+}
+function donutSvg(kind,g){
+  const R=84,r=56,cx=90,cy=90;
+  if(!g.total)return `<svg viewBox="0 0 180 180" class="donut" role="img" aria-label="No ${kind==='exp'?'spending':'income'} yet"><circle cx="90" cy="90" r="70" fill="none" stroke="var(--line)" stroke-width="28"/></svg>`;
+  let a0=-Math.PI/2;const pt=(rad,a)=>`${(cx+rad*Math.cos(a)).toFixed(2)} ${(cy+rad*Math.sin(a)).toFixed(2)}`;
+  const segs=g.arr.map((x,i)=>{
+    if(g.arr.length===1)return `<path data-bseg="${kind}-${i}" d="M ${cx} ${cy-R} A ${R} ${R} 0 1 1 ${cx-0.01} ${cy-R} L ${cx-0.01} ${cy-r} A ${r} ${r} 0 1 0 ${cx} ${cy-r} Z" fill="${x.color}" stroke="var(--surface)" stroke-width="2"/>`;
+    const a1=a0+x.pct*2*Math.PI,lg=a1-a0>Math.PI?1:0;
+    const d=`M ${pt(R,a0)} A ${R} ${R} 0 ${lg} 1 ${pt(R,a1)} L ${pt(r,a1)} A ${r} ${r} 0 ${lg} 0 ${pt(r,a0)} Z`;a0=a1;
+    return `<path data-bseg="${kind}-${i}" d="${d}" fill="${x.color}" stroke="var(--surface)" stroke-width="2"><title>${esc(x.name)}: ${fmt(x.v)} (${Math.round(x.pct*100)}%)</title></path>`;}).join('');
+  return `<svg viewBox="0 0 180 180" class="donut" role="img" aria-label="${kind==='exp'?'Spending':'Income'} by category">${segs}</svg>`;
+}
+function budgetPanel(kind,g){
+  const lbl=kind==='exp'?'Spending':'Income';
+  return `<div class="bpanel" data-bpanel="${kind}" data-total="${esc(fmt(g.total))}" data-label="Total ${kind==='exp'?'spent':'income'}">
+    <h3>${lbl} by category</h3>
+    <div class="bchart"><div class="donutwrap">${donutSvg(kind,g)}<div class="dcenter"><span class="dval num" id="bc-${kind}-v">${fmt(g.total)}</span><span class="dlbl" id="bc-${kind}-l">Total ${kind==='exp'?'spent':'income'}</span></div></div>
+    ${g.total?`<table class="blegend"><tbody>${g.arr.map((x,i)=>`<tr data-bseg="${kind}-${i}" tabindex="0"><td><span class="sw" style="background:${x.color}"></span>${esc(x.name)}${x.other?` <span class="muted small">(${x.n})</span>`:''}</td><td class="num">${fmt(x.v)}</td><td class="num muted">${Math.round(x.pct*100)}%</td></tr>`).join('')}</tbody></table>`
+    :`<span class="small muted">No ${lbl.toLowerCase()} in the ledger yet.</span>`}</div></div>`;
+}
+function vBudget(L){
+  const sp=budgetGroups(L.es,'exp'),inc=budgetGroups(L.es,'rev');
+  window.__bud={exp:sp,rev:inc};
+  const ratio=inc.total?sp.total/inc.total:0,over=sp.total-inc.total;
+  return `<div class="card"><div class="row between"><h2>Budget tracker</h2><span class="small muted">From every ledger entry, grouped by category</span></div>
+    ${(sp.total||inc.total)?`<div class="meter"><div class="row between small"><span>Spent <strong class="num">${fmt(sp.total)}</strong> of <strong class="num">${fmt(inc.total)}</strong> income${inc.total?` · <span class="num">${Math.round(ratio*100)}%</span>`:''}</span>
+      ${over>0.005?`<span class="pill owes">Over by ${fmt(over)}</span>`:`<span class="pill paid">${fmt(-over)} left</span>`}</div>
+      <div class="mtrack"><div class="mfill${over>0.005?' over':''}" style="width:${Math.min(100,inc.total?ratio*100:100).toFixed(1)}%"></div></div></div>`:''}
+    <div class="bgrid">${budgetPanel('exp',sp)}${budgetPanel('rev',inc)}</div></div>`;
+}
+function budHover(el,on){const k=el.dataset.bseg;if(!k||!window.__bud)return;const [kind,i]=k.split('-'),g=window.__bud[kind];if(!g)return;
+  const v=$('bc-'+kind+'-v'),l=$('bc-'+kind+'-l');if(!v)return;
+  document.querySelectorAll(`[data-bpanel="${kind}"] [data-bseg]`).forEach(n=>n.classList.toggle('dim',on&&n.dataset.bseg!==k));
+  if(on){const x=g.arr[+i];v.textContent=fmt(x.v);l.textContent=x.name+' · '+Math.round(x.pct*100)+'%';}
+  else{v.textContent=fmt(g.total);l.textContent=kind==='exp'?'Total spent':'Total income';}}
+['mouseover','focusin'].forEach(t=>document.addEventListener(t,e=>{const el=e.target.closest&&e.target.closest('[data-bseg]');if(el)budHover(el,true);}));
+['mouseout','focusout'].forEach(t=>document.addEventListener(t,e=>{const el=e.target.closest&&e.target.closest('[data-bseg]');if(el)budHover(el,false);}));
 
 /* ---------- actions ---------- */
 function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
