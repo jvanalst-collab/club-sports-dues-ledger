@@ -130,6 +130,12 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
 table.ledger th.grp{background:var(--surface);border-bottom:0;padding-block:6px 0;color:var(--accent)}
 table.ledger th.grp.l{border-bottom:2px solid var(--accent)}
 td.bal.neg{color:var(--bad)}
+input.ldate{width:132px;padding:4px 6px;background:transparent;border-color:transparent;font-variant-numeric:tabular-nums}
+input.ldate:hover{border-color:var(--line)}input.ldate:focus{background:var(--bg);border-color:var(--line)}
+input.ldate.nodate{color:var(--muted)}
+tr.flash td{animation:lflash 1.6s ease-out}
+@keyframes lflash{0%,30%{background:var(--good-bg)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){tr.flash td{animation:none;background:var(--good-bg)}}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </style>
@@ -310,7 +316,7 @@ function boot(){
 let raf=0;function render(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;paint();});}
 function paint(){
   const view=$('view'),ae=document.activeElement;
-  const keep=ae&&ae.id&&view.contains(ae)?{id:ae.id,v:ae.value,s:ae.selectionStart,e:ae.selectionEnd,text:ae.matches('input[type=text],input[type=password],textarea')}:null;
+  const keep=ae&&ae.id&&view.contains(ae)?{id:ae.id,v:ae.value,s:ae.selectionStart,e:ae.selectionEnd,text:ae.matches('input[type=text],input[type=password],input[type=date],textarea')}:null;
   const drafts={};view.querySelectorAll('[data-draft]').forEach(el=>drafts[el.id]=el.value);
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
   $('tabs').hidden=S.phase!=='live';
@@ -329,6 +335,7 @@ function paint(){
   view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger}[S.tab]||vBalances)(C);
   for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
   if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
+  if(S.lflash){const tr=view.querySelector(`tr[data-row="${CSS.escape(S.lflash)}"]`);S.lflash=null;if(tr){tr.classList.add('flash');try{tr.scrollIntoView({block:'nearest'});}catch(e){}}}
 }
 function tiles(C){
   const t=C.tot;
@@ -520,7 +527,7 @@ function vLedger(C){
     <div class="row between"><div class="row" style="align-items:center">
       <label class="field"><span>Club</span><input type="text" id="ls-title" data-c="lset" data-k="title" value="${esc(st.title||'Soccer Men')}" style="width:160px"></label>
       <label class="field"><span>Account</span><input type="text" id="ls-acct" data-c="lset" data-k="account" value="${esc(st.account||'DR2140')}" style="width:110px"></label></div>
-      <span class="small muted">Club Sports account ledger. Newest entries first; undated entries at the top.</span></div>
+      <span class="small muted">Club Sports account ledger. Newest entries first; undated entries at the top. Change a date in its row and the entry moves to its place.</span></div>
     <div class="tiles">
       <div class="tile"><span class="eyebrow">Account balance</span><span class="v num">${fmt(L.bal)}</span><span class="small muted">${fmt(L.t.rev)} in, ${fmt(L.t.exp)} out</span></div>
       <div class="tile"><span class="eyebrow">UO Foundation balance</span><input type="text" inputmode="decimal" class="money" id="ls-fnd" data-c="lset" data-k="foundation" value="${mval(fnd)}" placeholder="0.00" style="width:100%;font-size:18px"><span class="small muted">as of <input type="date" id="ls-fndd" data-c="lset" data-k="foundationDate" value="${esc(st.foundationDate||'')}" style="width:auto;padding:1px 4px"></span></div>
@@ -553,7 +560,7 @@ function vLedger(C){
   <div class="scroll"><table class="ledger"><thead>
     <tr><th colspan="7" class="grp"></th><th colspan="3" class="grp l">Club Sports office</th></tr>
     <tr><th>Date</th><th class="l">Category</th><th class="l">Description</th><th class="l">Fund</th><th>Revenue</th><th>Expense</th><th>Balance</th><th class="l">Period</th><th class="l">PO#</th><th class="l">Method</th></tr></thead>
-  <tbody>${rows.map(e=>`<tr><td class="num">${usDate(e.date)||'<span class="muted">No date</span>'}</td><td class="l">${esc(e.category||'')}</td>
+  <tbody>${rows.map(e=>`<tr data-row="${esc(e.id)}"><td class="num"><input type="date" class="ldate${e.date?'':' nodate'}" id="ld-${esc(e.id)}" data-ld="${esc(e.id)}" value="${esc(e.date||'')}" aria-label="Date for ${esc(e.desc||'entry')}"></td><td class="l">${esc(e.category||'')}</td>
     <td class="l" style="white-space:normal;min-width:220px"><button class="pname" data-act="lopen" data-id="${esc(e.id)}" aria-expanded="${!!(S.lopen||{})[e.id]}">${esc(e.desc||'(no description)')}</button>${e.notes?`<div class="small muted">${esc(e.notes)}</div>`:''}<div class="small muted">${e.auto?'Posted from '+AUTOFROM[e.auto]:'Added here'}${e.dup?' · <span class="pill owes">Possible duplicate</span>':''}</div></td>
     <td class="l"><span class="tag">${FUNDLBL[e.source]||''}</span></td>
     <td class="num">${e.type!=='exp'?fmt(e.amount):''}</td><td class="num">${e.type==='exp'?fmt(e.amount):''}</td><td class="num bal${e.bal<0?' neg':''}">${fmt(e.bal)}</td>
@@ -564,7 +571,6 @@ function vLedger(C){
 }
 function ledEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="field"${w?'':' style="flex:1 1 200px"'}><span>${l}</span><input type="text" id="le-${i}-${k}" data-c="led" data-id="${i}" data-k="${k}" value="${esc(k==='amount'?mval(e.amount):e[k]||'')}"${w?` style="width:${w}"`:''}${extra}></label>`;
   return `<tr class="detail"><td colspan="10"><div class="row">
-    <label class="field"><span>Date</span><input type="date" id="le-${i}-date" data-c="led" data-id="${i}" data-k="date" value="${esc(e.date||'')}"></label>
     <label class="field"><span>Type</span><select id="le-${i}-type" data-c="led" data-id="${i}" data-k="type" style="width:auto"><option value="exp"${e.type==='exp'?' selected':''}>Expense</option><option value="rev"${e.type!=='exp'?' selected':''}>Revenue</option></select></label>
     ${fld('category','Category','170px',' list="lcats"')}${fld('desc','Description')}${fld('amount','Amount','110px',' inputmode="decimal"')}
     <label class="field"><span>Fund</span><select id="le-${i}-source" data-c="led" data-id="${i}" data-k="source" style="width:auto">${fundOpts(e.type,e.source)}</select></label></div>
@@ -573,7 +579,6 @@ function ledEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="field
 function ledAutoEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="field"${w?'':' style="flex:1 1 200px"'}><span>${l}</span><input type="text" id="lo-${i}-${k}" data-c="lov" data-id="${i}" data-k="${k}" value="${esc(e[k]||'')}"${w?` style="width:${w}"`:''}${extra}></label>`;
   return `<tr class="detail"><td colspan="10"><div class="row between"><span class="small">${esc(e.desc)} · <strong class="num">${fmt(e.amount)}</strong> · posted from the ${AUTOFROM[e.auto]}. Change the amount or description there.</span><button data-act="tab" data-tab="${AUTOTAB[e.auto]}">Go to ${AUTOFROM[e.auto]}</button></div>
     <div class="row" style="margin-top:10px">
-    <label class="field"><span>Date</span><input type="date" id="lo-${i}-date" data-c="lov" data-id="${i}" data-k="date" value="${esc(e.date||'')}"></label>
     ${fld('category','Category','170px',' list="lcats"')}
     <label class="field"><span>Fund</span><select id="lo-${i}-source" data-c="lov" data-id="${i}" data-k="source" style="width:auto">${fundOpts(e.type,e.source)}</select></label>
     ${fld('period','Period','70px')}${fld('po','PO#','110px')}${fld('method','Method','140px')}${fld('notes','Notes')}</div></td></tr>`;}
@@ -697,6 +702,18 @@ document.addEventListener('change',e=>{
     put('config',d.id,n);}
   else if(d.c==='qual'){const p=local.players.get(d.p);if(p)put('players',d.p,{...p,fundQualified:el.checked},0);}
 });
+const ldT={};
+function commitLDate(el){
+  clearTimeout(ldT[el.id]);const id=el.dataset.ld,v=el.value;
+  if(v&&!/^(19|20)\d\d-\d\d-\d\d$/.test(v))return;
+  const cur=local.config.get(id)||{};
+  if(id.startsWith('lov-')){if((cur.date||'')===v)return;}
+  else{if(!local.config.has(id)||(cur.date||'')===v)return;}
+  put('config',id,{...cur,date:v},0);S.lflash=id;
+}
+document.addEventListener('change',e=>{const el=e.target;if(el.dataset&&el.dataset.ld){clearTimeout(ldT[el.id]);ldT[el.id]=setTimeout(()=>commitLDate(el),1200);}});
+document.addEventListener('focusout',e=>{const el=e.target;if(el.dataset&&el.dataset.ld)commitLDate(el);});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.ld){e.preventDefault();commitLDate(e.target);}});
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
 try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger'].includes(h))S.tab=h;}catch(e){}
