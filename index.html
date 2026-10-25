@@ -127,6 +127,9 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
 .empty ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:62ch}
 .warnlist{display:flex;flex-direction:column;gap:6px}
 .toast{position:fixed;left:50%;bottom:0;transform:translateX(-50%);margin-bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:var(--r);font-size:14px;max-width:calc(100% - 32px)}
+table.ledger th.grp{background:var(--surface);border-bottom:0;padding-block:6px 0;color:var(--accent)}
+table.ledger th.grp.l{border-bottom:2px solid var(--accent)}
+td.bal.neg{color:var(--bad)}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </style>
@@ -150,6 +153,7 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
     <button role="tab" data-act="tab" data-tab="costs">Costs &amp; fundraising</button>
     <button role="tab" data-act="tab" data-tab="usccs">USCCS costs</button>
     <button role="tab" data-act="tab" data-tab="payments">Payments</button>
+    <button role="tab" data-act="tab" data-tab="ledger">Ledger</button>
   </nav>
   <div id="view" class="panel"></div>
 </div>
@@ -322,7 +326,7 @@ function paint(){
     return;}
   const C=compute(local.players,local.trips,local.payments,cfg());
   $('tiles').innerHTML=tiles(C);
-  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments}[S.tab]||vBalances)(C);
+  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger}[S.tab]||vBalances)(C);
   for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
   if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
 }
@@ -467,6 +471,96 @@ function vPayments(C){
   </tbody><tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.paid)}</td><td></td><td></td></tr></tfoot></table></div>`:'<div class="empty"><span class="muted">No payments logged yet. Each one you record lowers that player\'s balance.</span></div>'}`;
 }
 
+
+/* ---------- account ledger ---------- */
+const FUNDS={rev:[['fund','Fundraised · 08001'],['dues','Member dues · 06389'],['univ','University funding'],['none','Other']],exp:[['fee','Fee spending'],['none','Other']]};
+const FUNDLBL={fund:'Fundraised',dues:'Member dues',univ:'University',fee:'Fee spending',none:''};
+const LCATS=['Rec Center Fee','Carryforward','Admin-Governing Body','Apparel','Apparel-IE','Equipment','Fundraising','Member Dues','Subscription','Travel-Lodging','Travel-MP'];
+const ledSet=()=>local.config.get('ledgerset')||{};
+function ledEntries(){return [...local.config].filter(([id])=>id.startsWith('led-')).map(([id,e])=>({id,...e}));}
+function ledCalc(){
+  const es=ledEntries().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.seq||0)-(b.seq||0));
+  const t={rev:0,exp:0,fund:0,dues:0,univ:0,fee:0};let bal=0;
+  es.forEach(e=>{const a=+e.amount||0;if(e.type==='exp'){bal-=a;t.exp+=a;if(e.source==='fee')t.fee+=a;}else{bal+=a;t.rev+=a;if(t[e.source]!=null&&e.source!=='fee')t[e.source]+=a;}e.bal=bal;});
+  return {es,t,bal};
+}
+const usDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||'');return m?`${+m[2]}/${+m[3]}/${m[1].slice(2)}`:'';};
+function parseDate(s){s=String(s||'').trim();let m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m=/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(s);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;}return '';}
+const pmoney=v=>{const n=parseFloat(String(v??'').replace(/[$,\s()]/g,''));return isFinite(n)?Math.abs(Math.round(n*100)/100):0;};
+function fundOpts(type,sel){return FUNDS[type==='exp'?'exp':'rev'].map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
+function catList(){const s=new Set(LCATS);ledEntries().forEach(e=>{if(e.category)s.add(e.category);});return `<datalist id="lcats">${[...s].sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;}
+function vLedger(C){
+  const L=ledCalc(),st=ledSet(),fnd=+st.foundation||0;
+  const duesLogged=C.tot.paid,duesLed=L.t.dues;
+  const lf=S.lfilter||'all',rows=L.es.filter(e=>lf==='all'||(lf==='exp'?e.type==='exp':e.type!=='exp')).slice().reverse();
+  const f=(k,l)=>`<button data-act="lfilter" data-f="${k}" aria-pressed="${(S.lfilter||'all')===k}">${l}</button>`;
+  const ty=S.ltype||'exp';
+  return `${catList()}<div class="card">
+    <div class="row between"><div class="row" style="align-items:center">
+      <label class="field"><span>Club</span><input type="text" id="ls-title" data-c="lset" data-k="title" value="${esc(st.title||'Soccer Men')}" style="width:160px"></label>
+      <label class="field"><span>Account</span><input type="text" id="ls-acct" data-c="lset" data-k="account" value="${esc(st.account||'DR2140')}" style="width:110px"></label></div>
+      <span class="small muted">Club Sports account ledger. Newest entries first.</span></div>
+    <div class="tiles">
+      <div class="tile"><span class="eyebrow">Account balance</span><span class="v num">${fmt(L.bal)}</span><span class="small muted">${fmt(L.t.rev)} in, ${fmt(L.t.exp)} out</span></div>
+      <div class="tile"><span class="eyebrow">UO Foundation balance</span><input type="text" inputmode="decimal" class="money" id="ls-fnd" data-c="lset" data-k="foundation" value="${mval(fnd)}" placeholder="0.00" style="width:100%;font-size:18px"><span class="small muted">as of <input type="date" id="ls-fndd" data-c="lset" data-k="foundationDate" value="${esc(st.foundationDate||'')}" style="width:auto;padding:1px 4px"></span></div>
+      <div class="tile key"><span class="eyebrow">Funds available</span><span class="v num">${fmt(L.bal+fnd)}</span><span class="small muted">Account plus Foundation</span></div>
+      <div class="tile"><span class="eyebrow">By fund</span><span class="small num">Fundraised 08001 <strong>${fmt(L.t.fund)}</strong></span><span class="small num">Member dues 06389 <strong>${fmt(L.t.dues)}</strong></span><span class="small num">University <strong>${fmt(L.t.univ)}</strong></span><span class="small num">Fee spending <strong>${fmt(L.t.fee)}</strong></span></div>
+    </div>
+    ${(duesLed||duesLogged)?`<span class="small">Member dues deposited in this ledger: <strong class="num">${fmt(duesLed)}</strong>. Payments logged on the Payments tab: <strong class="num">${fmt(duesLogged)}</strong>.${Math.abs(duesLed-duesLogged)>0.005?` <span class="muted">Difference ${fmt(duesLed-duesLogged)}.</span>`:' <span class="muted">They match.</span>'}</span>`:''}
+  </div>
+  <div class="card"><div class="row between"><h2>Add an entry</h2><button data-act="limp">${S.limp?'Hide import':'Import rows from a spreadsheet'}</button></div>
+    ${S.limp?`<div class="costblock"><span class="small">In the Club Sports sheet, select the entry rows from Date through the notes column (for example A8:N27), copy, and paste them here. Header, total, and blank rows are skipped, and so are rows already in this ledger.</span>
+      <textarea id="li-text" data-draft placeholder="Paste copied rows here"></textarea><div><button class="primary" data-act="limport">Import rows</button></div></div>`:''}
+    <div class="row">
+      <label class="field"><span>Date</span><input type="date" id="nl-date" data-draft value="${today()}"></label>
+      <label class="field"><span>Type</span><select id="nl-type" data-c="ltype" style="width:auto"><option value="exp"${ty==='exp'?' selected':''}>Expense</option><option value="rev"${ty==='rev'?' selected':''}>Revenue</option></select></label>
+      <label class="field"><span>Category</span><input type="text" id="nl-cat" list="lcats" data-draft placeholder="Travel-Lodging" style="width:170px"></label>
+      <label class="field grow"><span>Description</span><input type="text" id="nl-desc" data-draft placeholder="Airbnb - Seattle, WA 10/9-10/11"></label>
+      <label class="field"><span>Amount</span><input type="text" inputmode="decimal" class="money" id="nl-amt" data-draft placeholder="0.00"></label>
+      <label class="field"><span>Fund</span><select id="nl-src" data-draft style="width:auto">${fundOpts(ty,ty==='exp'?'none':'dues')}</select></label></div>
+    <div class="row">
+      <label class="field"><span>Period</span><input type="text" id="nl-per" data-draft style="width:70px"></label>
+      <label class="field"><span>PO#</span><input type="text" id="nl-po" data-draft style="width:110px"></label>
+      <label class="field"><span>Method</span><input type="text" id="nl-meth" data-draft placeholder="VISA-P, DEPOSIT" style="width:140px"></label>
+      <label class="field grow"><span>Notes</span><input type="text" id="nl-notes" data-draft></label>
+      <button class="primary" data-act="laddentry">Add entry</button></div></div>
+  ${L.es.length?`<div class="row between"><div class="filters">${f('all','All')}${f('rev','Revenue')}${f('exp','Expenses')}</div><button data-act="lcopy">Copy for spreadsheet</button></div>
+  <div class="scroll"><table class="ledger"><thead>
+    <tr><th colspan="7" class="grp"></th><th colspan="3" class="grp l">Club Sports office</th></tr>
+    <tr><th>Date</th><th class="l">Category</th><th class="l">Description</th><th class="l">Fund</th><th>Revenue</th><th>Expense</th><th>Balance</th><th class="l">Period</th><th class="l">PO#</th><th class="l">Method</th></tr></thead>
+  <tbody>${rows.map(e=>`<tr><td class="num">${usDate(e.date)}</td><td class="l">${esc(e.category||'')}</td>
+    <td class="l" style="white-space:normal;min-width:220px"><button class="pname" data-act="lopen" data-id="${esc(e.id)}" aria-expanded="${!!(S.lopen||{})[e.id]}">${esc(e.desc||'(no description)')}</button>${e.notes?`<div class="small muted">${esc(e.notes)}</div>`:''}</td>
+    <td class="l"><span class="tag">${FUNDLBL[e.source]||''}</span></td>
+    <td class="num">${e.type!=='exp'?fmt(e.amount):''}</td><td class="num">${e.type==='exp'?fmt(e.amount):''}</td><td class="num bal${e.bal<0?' neg':''}">${fmt(e.bal)}</td>
+    <td class="l">${esc(e.period||'')}</td><td class="l">${esc(e.po||'')}</td><td class="l">${esc(e.method||'')}</td></tr>
+    ${(S.lopen||{})[e.id]?ledEdit(e):''}`).join('')||'<tr><td colspan="10" class="muted">No entries match this filter.</td></tr>'}</tbody>
+  <tfoot><tr><td>Totals</td><td></td><td></td><td></td><td class="num">${fmt(L.t.rev)}</td><td class="num">${fmt(L.t.exp)}</td><td class="num">${fmt(L.bal)}</td><td colspan="3"></td></tr></tfoot></table></div>`
+  :'<div class="empty"><span class="muted">No ledger entries yet. Add one above, or import the rows from the Club Sports sheet.</span></div>'}`;
+}
+function ledEdit(e){const i=esc(e.id),fld=(k,l,w,extra='')=>`<label class="field"${w?'':' style="flex:1 1 200px"'}><span>${l}</span><input type="text" id="le-${i}-${k}" data-c="led" data-id="${i}" data-k="${k}" value="${esc(k==='amount'?mval(e.amount):e[k]||'')}"${w?` style="width:${w}"`:''}${extra}></label>`;
+  return `<tr class="detail"><td colspan="10"><div class="row">
+    <label class="field"><span>Date</span><input type="date" id="le-${i}-date" data-c="led" data-id="${i}" data-k="date" value="${esc(e.date||'')}"></label>
+    <label class="field"><span>Type</span><select id="le-${i}-type" data-c="led" data-id="${i}" data-k="type" style="width:auto"><option value="exp"${e.type==='exp'?' selected':''}>Expense</option><option value="rev"${e.type!=='exp'?' selected':''}>Revenue</option></select></label>
+    ${fld('category','Category','170px',' list="lcats"')}${fld('desc','Description')}${fld('amount','Amount','110px',' inputmode="decimal"')}
+    <label class="field"><span>Fund</span><select id="le-${i}-source" data-c="led" data-id="${i}" data-k="source" style="width:auto">${fundOpts(e.type,e.source)}</select></label></div>
+    <div class="row" style="margin-top:10px">${fld('period','Period','70px')}${fld('po','PO#','110px')}${fld('method','Method','140px')}${fld('notes','Notes')}
+    ${armBtn('led:'+e.id,'Delete entry','ldel',`data-id="${i}"`)}</div></td></tr>`;}
+function ledKey(e){return [e.date,(e.category||'').trim().toLowerCase(),(e.desc||'').trim().toLowerCase(),e.type,(+e.amount).toFixed(2),String(e.po||'').trim()].join('|');}
+function ledImport(text){
+  const have=new Set(ledEntries().map(ledKey));let n=0,dup=0,skip=0,seq=Date.now();
+  text.split(/\r?\n/).forEach(line=>{
+    const c=line.split('\t').map(x=>x.trim());if(!c.join(''))return;
+    if(/^(date|totals?)$/i.test(c[0])){skip++;return;}
+    const rev=pmoney(c[3]),exp=pmoney(c[8]);if(!rev&&!exp){skip++;return;}
+    const type=rev?'rev':'exp',amount=rev||exp;
+    const source=type==='rev'?(pmoney(c[4])?'fund':pmoney(c[5])?'dues':pmoney(c[7])?'univ':'none'):(pmoney(c[6])?'fee':'none');
+    const e={date:parseDate(c[0]),category:(c[1]||'').slice(0,60),desc:(c[2]||'').slice(0,160),type,amount,source,period:(c[10]||'').slice(0,20),po:(c[11]||'').slice(0,40),method:(c[12]||'').slice(0,40),notes:(c[13]||'').slice(0,200),seq:seq++};
+    const k=ledKey(e);if(have.has(k)){dup++;return;}have.add(k);put('config','led-'+uid(),e,0);n++;
+  });
+  return {n,dup,skip};
+}
+
 /* ---------- actions ---------- */
 function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
 function addPayment(pid,amt,date,note){
@@ -499,6 +593,25 @@ const ACT={
   delfixed(d){setCfg(c=>{c.fixed=(c.fixed||[]).filter(i=>i.id!==d.id);});},
   addline(d){mutLines(d.kind,d.id,ls=>ls.push({id:uid(),label:'',amount:0}));},
   delline(d){mutLines(d.kind,d.id,ls=>{const i=ls.findIndex(l=>l.id===d.l);if(i>=0)ls.splice(i,1);else if(d.l==='legacy')ls.length=0;});},
+  limp(){S.limp=!S.limp;render();},
+  lfilter(d){S.lfilter=d.f;render();},
+  lopen(d){S.lopen=S.lopen||{};S.lopen[d.id]=!S.lopen[d.id];render();},
+  ldel(d){S.armed=null;del('config',d.id);},
+  limport(){const t=$('li-text').value;if(!t.trim())return toast('Paste the rows first.');const r=ledImport(t);clearEls('li-text');if(r.n)S.limp=false;toast(`Imported ${r.n} ${r.n===1?'entry':'entries'}`+(r.dup?`, skipped ${r.dup} already in the ledger`:'')+'.');render();},
+  laddentry(){
+    const amt=money($('nl-amt').value);if(!amt)return toast('Enter an amount greater than zero.');
+    const desc=$('nl-desc').value.trim();if(!desc)return toast('Add a description.');
+    const g=i=>$(i).value.trim();
+    put('config','led-'+uid(),{date:g('nl-date'),type:$('nl-type').value==='rev'?'rev':'exp',category:g('nl-cat').slice(0,60),desc:desc.slice(0,160),amount:amt,source:$('nl-src').value,period:g('nl-per').slice(0,20),po:g('nl-po').slice(0,40),method:g('nl-meth').slice(0,40),notes:g('nl-notes').slice(0,200),seq:Date.now()},0);
+    clearEls('nl-cat','nl-desc','nl-amt','nl-per','nl-po','nl-meth','nl-notes');toast('Entry added');
+  },
+  lcopy(){
+    const L=ledCalc(),n=v=>v?(+v).toFixed(2):'';
+    const txt=[['Date','Category','Description','Revenue','Fundraised Funds-08001','Member Dues 06389','Fee Spending','University Funding','Expense','Balance','Period','PO#','NOTES',''].join('\t'),
+      ...L.es.map(e=>{const r=e.type!=='exp'?e.amount:0,x=e.type==='exp'?e.amount:0;return [usDate(e.date),e.category||'',e.desc||'',n(r),e.source==='fund'?n(r):'',e.source==='dues'?n(r):'',e.source==='fee'?n(x):'',e.source==='univ'?n(r):'',n(x),(+e.bal).toFixed(2),e.period||'',e.po||'',e.method||'',e.notes||''].join('\t');})].join('\n');
+    const fb=()=>{const ta=document.createElement('textarea');ta.value=txt;ta.setAttribute('aria-label','Ledger');$('view').prepend(ta);ta.select();toast('Copying is blocked here. The ledger is selected at the top for you to copy.');};
+    try{navigator.clipboard.writeText(txt).then(()=>toast('Ledger copied. Paste it into a spreadsheet.'),fb);}catch(e){fb();}
+  },
   addpay(){if(addPayment($('pp-player').value,money($('pp-amt').value),$('pp-date').value,$('pp-note').value))clearEls('pp-amt','pp-note');},
   quickpay(d){if(addPayment(d.id,money($('qa-'+d.id).value),$('qd-'+d.id).value,$('qn-'+d.id).value))clearEls('qa-'+d.id,'qn-'+d.id);},
   payfull(d){const C=compute(local.players,local.trips,local.payments,cfg()),r=C.rows.get(d.id),el=$('qa-'+d.id);if(r&&el){el.value=(Math.round(r.balance*100)/100).toFixed(2);el.focus();}},
@@ -521,11 +634,18 @@ document.addEventListener('change',e=>{
   else if(d.c==='fund'){setCfg(c=>{c.fundraising=money(el.value);});}
   else if(d.c==='roll'){setCfg(c=>{c.rollover=el.checked;});}
   else if(d.c==='fmode'){setCfg(c=>{c.fundMode=el.value==='qualified'?'qualified':'all';});}
+  else if(d.c==='ltype'){S.ltype=el.value==='rev'?'rev':'exp';render();}
+  else if(d.c==='lset'){const s={...ledSet()};s[d.k]=d.k==='foundation'?money(el.value):el.value.trim().slice(0,60);put('config','ledgerset',s);}
+  else if(d.c==='led'){const e=local.config.get(d.id);if(!e)return;const n={...e};
+    if(d.k==='amount'){const a=money(el.value);if(!a){toast('Enter an amount greater than zero.');render();return;}n.amount=a;}
+    else if(d.k==='type'){n.type=el.value==='rev'?'rev':'exp';if(!FUNDS[n.type].some(([k])=>k===n.source))n.source='none';}
+    else n[d.k]=el.value.trim().slice(0,d.k==='notes'?200:160);
+    put('config',d.id,n);}
   else if(d.c==='qual'){const p=local.players.get(d.p);if(p)put('players',d.p,{...p,fundQualified:el.checked},0);}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
-try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments'].includes(h))S.tab=h;}catch(e){}
+try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger'].includes(h))S.tab=h;}catch(e){}
 setStatus();render();boot();
 </script>
 </body>
