@@ -209,6 +209,11 @@ select.st{font-weight:600;border-left-width:5px}
 select.st.none{border-left-color:var(--s-none)}select.st.prog{border-left-color:var(--s-prog)}select.st.stuck{border-left-color:var(--s-stuck)}select.st.done{border-left-color:var(--s-done)}
 .dl-note{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
 .dl-note.late{color:var(--bad);font-weight:600}
+.np-links{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;margin-top:6px;font-size:13px}
+.np-link{font-weight:600;color:var(--accent);text-underline-offset:2px}
+.np-links button.link.small{font-size:12px;padding:1px 2px}
+.np-mail{user-select:all;font-variant-numeric:tabular-nums}
+.np-edit{display:flex;flex-direction:column;gap:8px;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk)}
 .np-add{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
 .np-add input{flex:1 1 220px}
 .np-ref{font-size:13px;color:var(--muted)}.np-ref ul{padding-left:18px;margin:6px 0}.np-ref li{margin:4px 0}.np-ref strong{color:var(--fg)}
@@ -785,18 +790,20 @@ const NPDEF = [
  {id:"cert-rec", phase:"forms", title:"Player Certification Form: Ben Prahl signs as Campus Rec rep", desc:"Needs Ben's signature, phone, and the Gold/Silver circle once known.", start:"2026-10-28", deadline:"2026-11-04"},
  {id:"cert-registrar", phase:"forms", title:"Player Certification Form: Registrar seal & credit totals", desc:"Registrar completes UG/credits column, full-time credit hours, count of verified students, signature, date, and seal of authentication.", start:"2026-10-29", deadline:"2026-11-05"},
  {id:"jersey-nums", phase:"forms", title:"Finalize jersey number list (no taped numbers)", desc:"Unique 00–99 per player on both the light and dark set. Players without a unique number are ineligible for that game.", start:"2026-10-26", deadline:"2026-11-04"},
- {id:"kit-photos", phase:"forms", title:"Take kit photos (home/away jerseys, socks, keeper jerseys)", desc:"Clear photos of both full sets plus GK jerseys; they go in with the enrollment Google Form.", start:"2026-10-28", deadline:"2026-11-05"},
- {id:"enroll-submit", phase:"forms", title:"Submit the Player Enrollment & Kit Google Form", desc:"One form: completed Certification Form (with seal), player names + jersey numbers, and kit photos.", link:{t:"Player Enrollment & Kit Form (Google)",u:"https://docs.google.com/forms/d/e/1FAIpQLSfoHYN3gImujLEOLWrF8r481Y-KRoaD4fT8BZdf2WejN2-0vg/viewform?usp=dialog"}, start:"2026-11-02", deadline:"2026-11-06"},
+ {id:"kit-photos", phase:"forms", title:"Submit kit photos (home/away jerseys, socks, keeper kits)", desc:"Clear photos of both full sets, socks, and GK jerseys.", link:{t:"USCCS Men Nationals Team Kit Submission (Google Form)",u:"https://forms.gle/CiWnnJ4DmBqiCRSD9"}, start:"2026-10-28", deadline:"2026-11-05"},
+ {id:"enroll-submit", phase:"forms", title:"Submit the completed Certification Form and jersey numbers", desc:"Upload the fully completed Player Certification Form (University Info, signatures, Student IDs, credit totals, Registrar seal) and the jersey number list.", link:{t:"Player Enrollment Form & Jersey Numbers (Google Form)",u:"https://forms.gle/kv31Hr2mp9aYrctC8"}, start:"2026-11-02", deadline:"2026-11-06"},
 
  {id:"practice", phase:"sched", title:"Book practice slot (Tue/Wed at IMG, grass)", desc:"Sign-ups open Mon Nov 2, first-come first-served; link emailed to captains that day.", start:"2026-11-02", deadline:"2026-11-02"},
  {id:"schedule", phase:"sched", title:"Review full schedule and share with the team", desc:"Released by Wed Nov 4. Build the game-day timeline (field marshal check-in 30 min before kickoff). Finals: Gold Sat Nov 14 7 PM; Silver Sun Nov 15 1:30 PM.", start:"2026-11-04", deadline:"2026-11-05"},
  {id:"exams", phase:"sched", title:"Collect exam conflicts and request proctoring", desc:"USCCS runs a proctored exam desk on site with professor approval. Gather who has midterms Nov 10–15, get professor sign-off, and send requests to Nicole Jackson (nicole@collegeclubsoccer.com).", start:"2026-10-26", deadline:"2026-11-04"},
  {id:"guide", phase:"sched", title:"Share the Tournament Guide and sportsmanship statement with players", desc:"Advancement rules, tiebreakers, discipline, misconduct protocol. Suspended players must leave the facility for that match.", start:"2026-10-26", deadline:"2026-11-02"},
 
- {id:"flights", phase:"travel", title:"Book flights (SRQ preferred; TPA/PIE ~45–60 min)", desc:"", start:"2026-10-26", deadline:""},
- {id:"hotel", phase:"travel", title:"Book team lodging", desc:"USCCS partner link: EventConnect (hotels), or the Airbnb plan.", start:"2026-10-26", deadline:""},
- {id:"vans", phase:"travel", title:"Reserve vans / ground transport", desc:"", start:"2026-10-26", deadline:""},
- {id:"fund", phase:"travel", title:"Fundraising pages live and dues collected", desc:"Givebutter peer-to-peer pages; dues settled before departure.", start:"2026-10-26", deadline:""},
+ {id:"flights", phase:"travel", title:"Flights booked", desc:"SRQ preferred; TPA and PIE are ~45–60 min from IMG.", cost:"flights", start:"2026-10-26", deadline:""},
+ {id:"hotel", phase:"travel", title:"Team Airbnb booked", desc:"USCCS partner link: EventConnect (hotels), or the Airbnb plan.", cost:"lodging", start:"2026-10-26", deadline:""},
+ {id:"coach-airbnb", phase:"travel", title:"Coach Airbnb booked", desc:"Separate lodging for the coach.", cost:"coach", start:"2026-10-26", deadline:""},
+ {id:"vans", phase:"travel", title:"Rental cars booked", desc:"Vans or rental cars for getting around Bradenton.", cost:"cars", start:"2026-10-26", deadline:""},
+ {id:"fund", phase:"travel", title:"Fundraising pages live", desc:"Givebutter peer-to-peer pages, one per player.", cost:"fund", start:"2026-10-26", deadline:""},
+ {id:"dues", phase:"travel", title:"Dues collected", desc:"Every player settled before departure.", cost:"dues", start:"2026-10-26", deadline:""},
  {id:"spectators", phase:"travel", title:"Send families the spectator info", desc:"Tournament pass $50/person, day pass $25/person; same gated entry as players. BallerTV stream for those at home.", start:"2026-11-04", deadline:""},
 
  {id:"checkin", phase:"onsite", title:"On-site check-in at IMG fields (3–7 PM on division day)", desc:"Gold: Tue Nov 10. Silver: Wed Nov 11. Team must also check in 90 min before its first match. Collect Captain's Package (2 armbands, 15 pink pinnies, 10 cones) and coach wristbands. Late = $150 unless Luciano is emailed before 7 PM.", start:"2026-11-10", deadline:"2026-11-11"},
@@ -808,12 +815,53 @@ const NPDEF = [
 
 const NPW={T0:'2026-10-26',T1:'2026-11-15',E0:'2026-11-11',E1:'2026-11-15'};
 const NPST={none:'Not started',prog:'In progress',stuck:'Stuck',done:'Done'};
+const NPEXTRA={
+ 'jersey-nums':{linkFrom:'enroll-submit'},
+ 'roster-online':{linkHint:'Paste the link to the team’s online roster.'},
+ 'practice':{linkHint:'The sign-up link is emailed to captains Mon Nov 2. Paste it here when it arrives.'},
+ 'cert-sign':{link:{t:'Player Certification Form (PDF)',u:'https://cdn3.sportngin.com/attachments/document/190f-3636500/Player_Certification_Form.docx.pdf'}},
+ 'cert-rec':{link:{t:'Player Certification Form (PDF)',u:'https://cdn3.sportngin.com/attachments/document/190f-3636500/Player_Certification_Form.docx.pdf'}},
+ 'cert-registrar':{link:{t:'Player Certification Form (PDF)',u:'https://cdn3.sportngin.com/attachments/document/190f-3636500/Player_Certification_Form.docx.pdf'}},
+ 'hotel':{linkHint:'Paste the EventConnect link from the USCCS email, or the Airbnb listing.',tab:'trips'},
+ 'coach-airbnb':{linkHint:'Paste the Airbnb listing.',tab:'trips'},
+ 'flights':{tab:'trips'},'vans':{tab:'trips'},
+ 'exams':{contact:['Nicole Jackson','nicole@collegeclubsoccer.com']},
+ 'checkin':{contact:['Luciano Parrotta','luciano@collegeclubsoccer.com']},
+ 'schedule':{contact:['Nicole Jackson','nicole@collegeclubsoccer.com']},
+ 'dues':{tab:'balances'},'fund':{tab:'costs'}
+};
+const NPTABNAME={trips:'Trips',balances:'Balances',costs:'Costs & fundraising'};
+function npLinks(t){
+  const i=esc(t.id);
+  if(S.nplink===t.id)return `<div class="np-edit"><label class="field"><span>Link</span><input type="text" id="npl-u-${i}" data-draft value="${esc(t.link&&t.link.u||'')}" placeholder="https://"></label>
+    <label class="field"><span>Label</span><input type="text" id="npl-t-${i}" data-draft value="${esc(t.link&&t.link.t||'')}" placeholder="Practice sign-up"></label>
+    <div class="row"><button class="primary" data-act="npsavelink" data-id="${i}">Save link</button>${t.link&&t.link.u?`<button class="danger" data-act="npdellink" data-id="${i}">Remove link</button>`:''}<button data-act="nplinkoff">Cancel</button></div></div>`;
+  const parts=[];
+  if(t.link&&t.link.u)parts.push(`<a class="np-link" href="${esc(t.link.u)}" target="_blank" rel="noopener">${esc(t.link.t||'Open link')} ↗</a><button class="link small" data-act="nplink" data-id="${i}">Change</button>`);
+  else if(t.linkHint)parts.push(`<span class="muted">${esc(t.linkHint)}</span><button class="link small" data-act="nplink" data-id="${i}">Add link</button>`);
+  else parts.push(`<button class="link small muted" data-act="nplink" data-id="${i}">Add link</button>`);
+  if(t.tab)parts.push(`<button class="link small" data-act="tab" data-tab="${t.tab}">Open ${NPTABNAME[t.tab]} tab</button>`);
+  const ct=t.contact?`<div class="np-links">Contact: ${esc(t.contact[0])} · <span class="np-mail">${esc(t.contact[1])}</span><button class="link small" data-act="npcopy" data-v="${esc(t.contact[1])}">Copy email</button></div>`:'';
+  return `<div class="np-links">${parts.join('')}</div>${ct}`;
+}
 function npTasks(){
-  const map=new Map();NPDEF.forEach(t=>map.set(t.id,{...t,owner:'',status:'none',notes:''}));
+  const map=new Map();NPDEF.forEach(t=>{const x=NPEXTRA[t.id]||{};const lk=x.linkFrom?(NPDEF.find(d=>d.id===x.linkFrom)||{}).link:null;map.set(t.id,{...t,...x,...(lk?{link:lk}:{}),owner:'',status:'none',notes:''});});
   local.config.forEach((o,k)=>{if(!k.startsWith('np-')||!o)return;const id=k.slice(3);
     if(map.has(id))map.set(id,{...map.get(id),...o,id});
     else if(o.title)map.set(id,{phase:'travel',desc:'',start:today(),deadline:'',owner:'',status:'none',notes:'',...o,id,custom:true});});
   return [...map.values()];
+}
+function npCost(kind){
+  if(kind==='fund'){const F=+cfg().fundraising||0;return F>0?`${fmt(F)} raised so far (Costs &amp; fundraising tab).`:'No fundraising total entered yet (Costs &amp; fundraising tab).';}
+  if(kind==='dues'){const C=compute(local.players,local.trips,local.payments,cfg());if(!C.list.length)return '';
+    const owe=C.list.filter(r=>r.balance>0.005);return `${C.list.length-owe.length} of ${C.list.length} players settled · ${fmt(C.tot.owed)} still owed (Balances tab).`;}
+  const tr=[...local.trips.entries()].find(([,t])=>/florida|nationals|bradenton|img/i.test(t.name||''));if(!tr)return '';
+  const [,t]=tr,ls=Array.isArray(t.expenses)?t.expenses:[];
+  const re={flights:/flight|airfare|plane|^air\b|travel-air/i,cars:/van|rental|car|sedan/i,coach:/coach/i,lodging:/airbnb|hotel|lodg/i}[kind];
+  const hit=ls.filter(l=>re.test(l.label||'')&&(kind!=='lodging'||!/coach/i.test(l.label||'')));
+  const sum=hit.reduce((x,l)=>x+(+l.amount||0),0);
+  const what={flights:'flights',cars:'rental cars',coach:'coach lodging',lodging:'team lodging'}[kind];
+  return sum>0?`${esc(t.name)} trip: ${fmt(sum)} entered for ${what}.`:`${esc(t.name)} trip: nothing entered for ${what} yet${kind==='coach'&&!hit.length?' (add an expense line with "Coach" in its name)':''}.`;
 }
 const npDay=iso=>Math.round((Date.parse(iso+'T00:00:00Z')-Date.parse(NPW.T0+'T00:00:00Z'))/86400000);
 const npFmt=iso=>iso?new Date(iso+'T00:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}):'';
@@ -836,7 +884,7 @@ function vNationals(){
     return `<div class="np-phase"><div class="np-ph"><h3>${esc(p.name)}</h3><span class="due">${esc(p.due)}</span></div>
     <table class="np-tbl"><thead><tr><th>Task</th><th class="c-own">Owner</th><th class="c-dl">Deadline</th><th class="c-st">Status</th><th class="c-note">Notes</th></tr></thead><tbody>
     ${ts.map(t=>{const st=t.status in NPST?t.status:'none',late=t.deadline&&t.deadline<T&&st!=='done',i=esc(t.id);
-      return `<tr class="${st}"><td class="task" data-l="Task"><div class="t-title">${esc(t.title)}</div>${t.desc||(t.link&&t.link.u)?`<div class="t-desc">${esc(t.desc||'')}${t.link&&t.link.u?` <a href="${esc(t.link.u)}" target="_blank" rel="noopener">${esc(t.link.t||'Open link')} ↗</a>`:''}</div>`:''}${t.custom?`<div style="margin-top:4px">${armBtn('np:'+t.id,'Remove task','npdel',`data-id="${i}"`)}</div>`:''}</td>
+      return `<tr class="${st}"><td class="task" data-l="Task"><div class="t-title">${esc(t.title)}</div>${t.cost&&npCost(t.cost)?`<div class="t-desc"><strong>${npCost(t.cost)}</strong></div>`:''}${t.desc?`<div class="t-desc">${esc(t.desc)}</div>`:''}${npLinks(t)}${t.custom?`<div style="margin-top:4px">${armBtn('np:'+t.id,'Remove task','npdel',`data-id="${i}"`)}</div>`:''}</td>
       <td class="c-own" data-l="Owner"><input type="text" id="npo-${i}" list="np-people" placeholder="who?" value="${esc(t.owner)}" data-c="np" data-id="${i}" data-k="owner"></td>
       <td class="c-dl" data-l="Deadline"><input type="date" id="npd-${i}" value="${esc(t.deadline||'')}" data-npd="${i}" min="2026-10-01" max="2026-11-30"><div class="dl-note${late?' late':''}">${t.deadline?(late?'past due · ':'')+npFmt(t.deadline):'set a date'}</div></td>
       <td class="c-st" data-l="Status"><select id="nps-${i}" class="st ${st}" data-c="np" data-id="${i}" data-k="status">${Object.entries(NPST).map(([k,v])=>`<option value="${k}"${k===st?' selected':''}>${v}</option>`).join('')}</select></td>
@@ -916,6 +964,15 @@ const ACT={
   lmatchclose(){S.lmatch=null;render();},
   npadd(d){const el=$('npadd-'+d.ph);const title=(el&&el.value||'').trim().slice(0,140);if(!title)return toast('Type a task first.');
     const id='c-'+Date.now().toString(36);put('config','np-'+id,{phase:d.ph,title,desc:'',start:today(),deadline:'',owner:'',status:'none',notes:'',custom:true},0);el.value='';toast('Task added');},
+  nplink(d){S.nplink=d.id;render();setTimeout(()=>{const el=$('npl-u-'+d.id);if(el)el.focus();},40);},
+  nplinkoff(){S.nplink=null;render();},
+  npsavelink(d){let u=($('npl-u-'+d.id).value||'').trim(),t=($('npl-t-'+d.id).value||'').trim().slice(0,80);
+    if(u&&!/^https?:\/\//i.test(u))u='https://'+u;
+    let ok=false;try{const x=new URL(u);ok=/^https?:$/.test(x.protocol)&&x.hostname.includes('.');}catch(e){}
+    if(!ok)return toast('Enter a full link, like https://docs.google.com/…');
+    npSave(d.id,{link:{t:t||'Open link',u:u.slice(0,600)}});S.nplink=null;toast('Link saved');},
+  npdellink(d){npSave(d.id,{link:{t:'',u:''}});S.nplink=null;toast('Link removed');},
+  npcopy(d){const v=d.v;try{navigator.clipboard.writeText(v).then(()=>toast('Email copied'),()=>toast('Copying is blocked here. Select the address to copy it.'));}catch(e){toast('Copying is blocked here. Select the address to copy it.');}},
   npdel(d){S.armed=null;del('config','np-'+d.id);},
   limp(){S.limp=!S.limp;render();},
   lfilter(d){S.lfilter=d.f;render();},
