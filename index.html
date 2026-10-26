@@ -16,6 +16,7 @@ html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!i
   --good-bg:#dff1e6; --warn-bg:#fbeccd; --bad-bg:#f8dfdb;
   --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c-other:#a3aaa5;
   --t1:#104281; --t2:#256abf; --t3:#5598e7; --t4:#86b6ef;
+  --s-none:#b9c2bb; --s-prog:#2f7fc1; --s-stuck:#d8432b; --s-done:#1f8a4c; --today:#d9a400; --gold:#fee123;
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:6px;
@@ -26,14 +27,16 @@ html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!i
   --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
   --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b;
   --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c-other:#6b766f;
-  --t1:#184f95; --t2:#2a78d6; --t3:#6da7ec; --t4:#b7d3f6; color-scheme:dark } }
+  --t1:#184f95; --t2:#2a78d6; --t3:#6da7ec; --t4:#b7d3f6;
+  --s-none:#5a665d; --s-prog:#5aa0dc; --s-stuck:#ef6a52; --s-done:#3dbb74; --today:#f0c43a; --gold:#f2d94a; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0e1411; --surface:#161f1a; --sunk:#1d2822; --fg:#e7eee8; --muted:#93a399; --line:#2b3931;
   --accent:#4cc489; --accent-fg:#06180f; --mark:#f4d21f; --mark-fg:#2a2400;
   --good:#5fd09a; --warn:#e6ab4c; --bad:#f08576;
   --good-bg:#16352a; --warn-bg:#3a2c12; --bad-bg:#3f1f1b;
   --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c-other:#6b766f;
-  --t1:#184f95; --t2:#2a78d6; --t3:#6da7ec; --t4:#b7d3f6; color-scheme:dark }
+  --t1:#184f95; --t2:#2a78d6; --t3:#6da7ec; --t4:#b7d3f6;
+  --s-none:#5a665d; --s-prog:#5aa0dc; --s-stuck:#ef6a52; --s-done:#3dbb74; --today:#f0c43a; --gold:#f2d94a; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
@@ -166,6 +169,59 @@ tr.flash td{animation:lflash 1.6s ease-out}
 .mfill{height:100%;border-radius:5px;background:var(--accent)}
 .mfill.over{background:var(--bad)}
 @media (prefers-reduced-motion:reduce){.donut path{transition:none}}
+.np-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.np-tile{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.np-tile b{font-family:var(--display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.np-tile span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.np-tile.none{border-left-color:var(--s-none)}.np-tile.prog{border-left-color:var(--s-prog)}.np-tile.stuck{border-left-color:var(--s-stuck)}.np-tile.done{border-left-color:var(--s-done)}
+.np-gantt{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow-x:auto}
+.g-inner{min-width:760px}
+.g-row{display:grid;grid-template-columns:230px 1fr;align-items:center;border-top:1px solid var(--line);min-height:34px}
+.g-row.head{border-top:0;background:var(--sunk)}
+.g-label{padding:6px 12px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.g-label small{display:block;color:var(--muted);font-size:11px}
+.g-track{position:relative;height:34px;border-left:1px solid var(--line)}
+.g-days{position:relative;height:40px;border-left:1px solid var(--line)}
+.g-day{position:absolute;top:0;height:100%;font-size:11px;color:var(--muted);border-left:1px solid var(--line);padding:4px 0 0 4px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.g-day.wk{color:var(--fg);font-weight:600}
+.g-bar{position:absolute;top:8px;height:18px;border-radius:3px;background:var(--s-none);color:#fff;font-size:11px;line-height:18px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:8px}
+.g-bar.prog{background:var(--s-prog)}.g-bar.stuck{background:var(--s-stuck)}.g-bar.done{background:var(--s-done);opacity:.75}.g-bar.none{color:var(--fg)}
+.g-dl{position:absolute;top:4px;width:0;height:26px;border-left:2px solid var(--fg);opacity:.55}
+.g-today{position:absolute;top:0;bottom:0;border-left:2px solid var(--today);z-index:2}
+.g-days .g-today::after{content:"today";position:absolute;top:22px;left:4px;font-size:10px;color:var(--today);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.g-event{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--gold) 26%,transparent)}
+.g-nodate{font-size:12px;color:var(--muted);padding:9px 10px;font-style:italic}
+.np-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.np-legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.np-phase{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.np-ph{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line)}
+.np-ph h3{font-size:17px}.np-ph .due{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+table.np-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
+.np-tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;background:var(--surface);position:static}
+.np-tbl td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left;white-space:normal}
+.np-tbl tr:last-child td{border-bottom:0}
+.np-tbl tr.done td.task{color:var(--muted)}.np-tbl tr.done .t-title{text-decoration:line-through}
+.t-title{font-weight:600}.t-desc{font-size:12px;color:var(--muted);margin-top:2px}.t-desc a{color:var(--accent)}
+.np-tbl th.c-own{width:150px}.np-tbl th.c-dl{width:150px}.np-tbl th.c-st{width:140px}.np-tbl th.c-note{width:220px}
+.np-tbl input,.np-tbl select,.np-tbl textarea{font-size:13px;padding:5px 7px}
+.np-tbl textarea{resize:vertical;min-height:34px;height:34px}
+select.st{font-weight:600;border-left-width:5px}
+select.st.none{border-left-color:var(--s-none)}select.st.prog{border-left-color:var(--s-prog)}select.st.stuck{border-left-color:var(--s-stuck)}select.st.done{border-left-color:var(--s-done)}
+.dl-note{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
+.dl-note.late{color:var(--bad);font-weight:600}
+.np-add{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+.np-add input{flex:1 1 220px}
+.np-ref{font-size:13px;color:var(--muted)}.np-ref ul{padding-left:18px;margin:6px 0}.np-ref li{margin:4px 0}.np-ref strong{color:var(--fg)}
+@media (max-width:720px){
+  table.np-tbl,.np-tbl thead,.np-tbl tbody,.np-tbl tr,.np-tbl td{display:block;width:auto}
+  .np-tbl thead{display:none}
+  .np-tbl tr{border-bottom:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px}
+  .np-tbl td{border:0;padding:0}
+  .np-tbl td.task,.np-tbl td.c-note{grid-column:1 / -1}
+  .np-tbl td::before{content:attr(data-l);display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;font-weight:600}
+  .np-tbl td.task::before{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.g-bar{transition:width .2s,left .2s,background-color .2s}}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </style>
@@ -190,6 +246,7 @@ tr.flash td{animation:lflash 1.6s ease-out}
     <button role="tab" data-act="tab" data-tab="usccs">USCCS costs</button>
     <button role="tab" data-act="tab" data-tab="payments">Payments</button>
     <button role="tab" data-act="tab" data-tab="ledger">Ledger</button>
+    <button role="tab" data-act="tab" data-tab="nationals">Nationals prep</button>
   </nav>
   <div id="view" class="panel"></div>
 </div>
@@ -362,7 +419,7 @@ function paint(){
     return;}
   const C=compute(local.players,local.trips,local.payments,cfg());
   $('tiles').innerHTML=tiles(C);
-  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger}[S.tab]||vBalances)(C);
+  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger,nationals:vNationals}[S.tab]||vBalances)(C);
   for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
   if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
   if(S.lflash){const tr=view.querySelector(`tr[data-row="${CSS.escape(S.lflash)}"]`);S.lflash=null;if(tr){tr.classList.add('flash');try{tr.scrollIntoView({block:'nearest'});}catch(e){}}}
@@ -708,6 +765,121 @@ function budHover(el,on){const k=el.dataset.bseg;if(!k||!window.__bud)return;con
 ['mouseover','focusin'].forEach(t=>document.addEventListener(t,e=>{const el=e.target.closest&&e.target.closest('[data-bseg]');if(el)budHover(el,true);}));
 ['mouseout','focusout'].forEach(t=>document.addEventListener(t,e=>{const el=e.target.closest&&e.target.closest('[data-bseg]');if(el)budHover(el,false);}));
 
+const NPPH = [
+ {id:"reg", name:"Registration & roster", due:"USCCS deadlines Oct 23 · Oct 30"},
+ {id:"forms", name:"Player forms, enrollment & kits", due:"USCCS deadline Fri Nov 6"},
+ {id:"sched", name:"Schedule & practice", due:"Nov 2 · Nov 4"},
+ {id:"travel", name:"Travel & lodging", due:"set your own dates"},
+ {id:"onsite", name:"On-site & game day", due:"Nov 10/11 check-in · Nov 11–15"},
+];
+
+// Default task set. Owner/status/notes/deadline edits live in the shared store; these are the baseline.
+const NPDEF = [
+ {id:"team-reg", phase:"reg", title:"Team registration & $1,300 payment", desc:"Was due Oct 23; refunded in full if the team does not qualify.", link:{t:"Team Registration (SportsEngine)",u:"https://collegeclubsoccer.sportngin.com/register/form/751787149"}, start:"2026-10-26", deadline:"2026-10-23"},
+ {id:"roster-online", phase:"reg", title:"Add all 25 players to the online roster", desc:"Only players registered before the deadline can be selected for the Nationals roster. The guide says additions after Oct 29 are at the commissioners' discretion, so treat Oct 29 as the real cutoff.", start:"2026-10-26", deadline:"2026-10-29"},
+ {id:"eligibility", phase:"reg", title:"Eligibility check on all 25", desc:"Each player: 18+, enrolled at least half-time, approved by UO Club Sports, not on an NCAA/NAIA roster this academic year, no pro experience. Max 5 Designated Players (2+ years on an NCAA varsity roster).", start:"2026-10-26", deadline:"2026-10-30"},
+ {id:"division", phase:"reg", title:"Confirm division: Gold or Silver", desc:"Depends on final league standing. Sets the check-in day (Gold Tue / Silver Wed), first-game day (Gold Wed AM / Silver Thu AM, as early as 8 AM), and the circle on the Player Certification Form.", start:"2026-10-26", deadline:"2026-11-06"},
+
+ {id:"indiv-reg", phase:"forms", title:"Every player & coach re-registers and signs waivers (incl. IMG waiver)", desc:"Individual, not team-level. The IMG Academy waiver is inside the SportsEngine flow. Chase stragglers early.", link:{t:"Player & Coach Registration (SportsEngine)",u:"https://collegeclubsoccer.sportngin.com/register/form/847753059"}, start:"2026-10-26", deadline:"2026-11-06"},
+ {id:"cert-sign", phase:"forms", title:"Player Certification Form: collect player & staff signatures and Student IDs", desc:"Names, UG, and team info are pre-filled. Each of the 25 players signs and writes their UO ID #; the guide also asks for staff signatures.", start:"2026-10-26", deadline:"2026-11-03"},
+ {id:"cert-rec", phase:"forms", title:"Player Certification Form: Ben Prahl signs as Campus Rec rep", desc:"Needs Ben's signature, phone, and the Gold/Silver circle once known.", start:"2026-10-28", deadline:"2026-11-04"},
+ {id:"cert-registrar", phase:"forms", title:"Player Certification Form: Registrar seal & credit totals", desc:"Registrar completes UG/credits column, full-time credit hours, count of verified students, signature, date, and seal of authentication.", start:"2026-10-29", deadline:"2026-11-05"},
+ {id:"jersey-nums", phase:"forms", title:"Finalize jersey number list (no taped numbers)", desc:"Unique 00–99 per player on both the light and dark set. Players without a unique number are ineligible for that game.", start:"2026-10-26", deadline:"2026-11-04"},
+ {id:"kit-photos", phase:"forms", title:"Take kit photos (home/away jerseys, socks, keeper jerseys)", desc:"Clear photos of both full sets plus GK jerseys; they go in with the enrollment Google Form.", start:"2026-10-28", deadline:"2026-11-05"},
+ {id:"enroll-submit", phase:"forms", title:"Submit the Player Enrollment & Kit Google Form", desc:"One form: completed Certification Form (with seal), player names + jersey numbers, and kit photos.", link:{t:"Player Enrollment & Kit Form (Google)",u:"https://docs.google.com/forms/d/e/1FAIpQLSfoHYN3gImujLEOLWrF8r481Y-KRoaD4fT8BZdf2WejN2-0vg/viewform?usp=dialog"}, start:"2026-11-02", deadline:"2026-11-06"},
+
+ {id:"practice", phase:"sched", title:"Book practice slot (Tue/Wed at IMG, grass)", desc:"Sign-ups open Mon Nov 2, first-come first-served; link emailed to captains that day.", start:"2026-11-02", deadline:"2026-11-02"},
+ {id:"schedule", phase:"sched", title:"Review full schedule and share with the team", desc:"Released by Wed Nov 4. Build the game-day timeline (field marshal check-in 30 min before kickoff). Finals: Gold Sat Nov 14 7 PM; Silver Sun Nov 15 1:30 PM.", start:"2026-11-04", deadline:"2026-11-05"},
+ {id:"exams", phase:"sched", title:"Collect exam conflicts and request proctoring", desc:"USCCS runs a proctored exam desk on site with professor approval. Gather who has midterms Nov 10–15, get professor sign-off, and send requests to Nicole Jackson (nicole@collegeclubsoccer.com).", start:"2026-10-26", deadline:"2026-11-04"},
+ {id:"guide", phase:"sched", title:"Share the Tournament Guide and sportsmanship statement with players", desc:"Advancement rules, tiebreakers, discipline, misconduct protocol. Suspended players must leave the facility for that match.", start:"2026-10-26", deadline:"2026-11-02"},
+
+ {id:"flights", phase:"travel", title:"Book flights (SRQ preferred; TPA/PIE ~45–60 min)", desc:"", start:"2026-10-26", deadline:""},
+ {id:"hotel", phase:"travel", title:"Book team lodging", desc:"USCCS partner link: EventConnect (hotels), or the Airbnb plan.", start:"2026-10-26", deadline:""},
+ {id:"vans", phase:"travel", title:"Reserve vans / ground transport", desc:"", start:"2026-10-26", deadline:""},
+ {id:"fund", phase:"travel", title:"Fundraising pages live and dues collected", desc:"Givebutter peer-to-peer pages; dues settled before departure.", start:"2026-10-26", deadline:""},
+ {id:"spectators", phase:"travel", title:"Send families the spectator info", desc:"Tournament pass $50/person, day pass $25/person; same gated entry as players. BallerTV stream for those at home.", start:"2026-11-04", deadline:""},
+
+ {id:"checkin", phase:"onsite", title:"On-site check-in at IMG fields (3–7 PM on division day)", desc:"Gold: Tue Nov 10. Silver: Wed Nov 11. Team must also check in 90 min before its first match. Collect Captain's Package (2 armbands, 15 pink pinnies, 10 cones) and coach wristbands. Late = $150 unless Luciano is emailed before 7 PM.", start:"2026-11-10", deadline:"2026-11-11"},
+ {id:"ids", phase:"onsite", title:"Every player has a physical or digital Student ID", desc:"Official school app or Apple/Google Wallet only. A photo of an ID will not be accepted. Players also show their jersey at the gate.", start:"2026-11-02", deadline:"2026-11-10"},
+ {id:"kits-pack", phase:"onsite", title:"Pack both full uniform sets + keeper kits", desc:"White/light and dark/bright, socks, GK kits. Numbers must match the submitted list. Sock tape must match the sock color. Visiting team changes on a color clash.", start:"2026-11-06", deadline:"2026-11-10"},
+ {id:"staff", phase:"onsite", title:"Confirm technical-area staff list (max 5, wristbands)", desc:"Head coach, assistants, trainers, ops staff all count toward 5.", start:"2026-11-02", deadline:"2026-11-10"},
+];
+
+
+const NPW={T0:'2026-10-26',T1:'2026-11-15',E0:'2026-11-11',E1:'2026-11-15'};
+const NPST={none:'Not started',prog:'In progress',stuck:'Stuck',done:'Done'};
+function npTasks(){
+  const map=new Map();NPDEF.forEach(t=>map.set(t.id,{...t,owner:'',status:'none',notes:''}));
+  local.config.forEach((o,k)=>{if(!k.startsWith('np-')||!o)return;const id=k.slice(3);
+    if(map.has(id))map.set(id,{...map.get(id),...o,id});
+    else if(o.title)map.set(id,{phase:'travel',desc:'',start:today(),deadline:'',owner:'',status:'none',notes:'',...o,id,custom:true});});
+  return [...map.values()];
+}
+const npDay=iso=>Math.round((Date.parse(iso+'T00:00:00Z')-Date.parse(NPW.T0+'T00:00:00Z'))/86400000);
+const npFmt=iso=>iso?new Date(iso+'T00:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}):'';
+function vNationals(){
+  const tasks=npTasks(),T=today(),ND=npDay(NPW.T1)+1,pct=i=>(i/ND*100).toFixed(2)+'%';
+  const c={none:0,prog:0,stuck:0,done:0};tasks.forEach(t=>c[t.status in NPST?t.status:'none']++);
+  const overdue=tasks.filter(t=>t.deadline&&t.deadline<T&&t.status!=='done').length;
+  let days='';for(let i=0;i<ND;i++){const d=new Date(Date.parse(NPW.T0+'T00:00:00Z')+i*86400000);
+    days+=`<div class="g-day${d.getUTCDay()===1?' wk':''}" style="left:${pct(i)};width:${pct(1)}">${d.getUTCDate()===1||i===0?d.toLocaleDateString('en-US',{month:'short',timeZone:'UTC'})+' ':''}${d.getUTCDate()}</div>`;}
+  const ti=npDay(T),todayLine=(ti>=0&&ti<ND)?`<div class="g-today" style="left:${pct(ti+0.5)}"></div>`:'';
+  const band=`<div class="g-event" style="left:${pct(npDay(NPW.E0))};width:${pct(npDay(NPW.E1)-npDay(NPW.E0)+1)}"></div>`;
+  let rows=`<div class="g-row head"><div class="g-label"><strong>Task</strong></div><div class="g-days">${days}${band}${todayLine}</div></div>`;
+  [...tasks].sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9')).forEach(t=>{const st=t.status in NPST?t.status:'none';let bar;
+    if(t.deadline){let s=Math.max(0,npDay(t.start||NPW.T0)),e=npDay(t.deadline);if(e<s)s=e;e=Math.min(e,ND-1);s=Math.min(s,ND-1);const w=Math.max(e-s+1,0.35);
+      bar=`<div class="g-bar ${st}" style="left:${pct(Math.max(s,0))};width:${pct(w)}" title="${esc(t.title)}, due ${npFmt(t.deadline)}">${esc(t.owner||'')}</div><div class="g-dl" style="left:${pct(Math.min(npDay(t.deadline)+1,ND))}"></div>`;}
+    else bar='<div class="g-nodate">no deadline set</div>';
+    rows+=`<div class="g-row"><div class="g-label">${esc(t.title)}<small>${t.deadline?'due '+npFmt(t.deadline):'no deadline'}${t.owner?' · '+esc(t.owner):''}</small></div><div class="g-track">${band}${todayLine}${bar}</div></div>`;});
+  const people=[...new Set(['JD',...[...local.players.values()].map(p=>p.name).filter(Boolean).sort()])];
+  const phases=NPPH.map(p=>{const ts=tasks.filter(t=>t.phase===p.id).sort((a,b)=>(a.deadline||'9').localeCompare(b.deadline||'9'));
+    return `<div class="np-phase"><div class="np-ph"><h3>${esc(p.name)}</h3><span class="due">${esc(p.due)}</span></div>
+    <table class="np-tbl"><thead><tr><th>Task</th><th class="c-own">Owner</th><th class="c-dl">Deadline</th><th class="c-st">Status</th><th class="c-note">Notes</th></tr></thead><tbody>
+    ${ts.map(t=>{const st=t.status in NPST?t.status:'none',late=t.deadline&&t.deadline<T&&st!=='done',i=esc(t.id);
+      return `<tr class="${st}"><td class="task" data-l="Task"><div class="t-title">${esc(t.title)}</div>${t.desc||(t.link&&t.link.u)?`<div class="t-desc">${esc(t.desc||'')}${t.link&&t.link.u?` <a href="${esc(t.link.u)}" target="_blank" rel="noopener">${esc(t.link.t||'Open link')} ↗</a>`:''}</div>`:''}${t.custom?`<div style="margin-top:4px">${armBtn('np:'+t.id,'Remove task','npdel',`data-id="${i}"`)}</div>`:''}</td>
+      <td class="c-own" data-l="Owner"><input type="text" id="npo-${i}" list="np-people" placeholder="who?" value="${esc(t.owner)}" data-c="np" data-id="${i}" data-k="owner"></td>
+      <td class="c-dl" data-l="Deadline"><input type="date" id="npd-${i}" value="${esc(t.deadline||'')}" data-npd="${i}" min="2026-10-01" max="2026-11-30"><div class="dl-note${late?' late':''}">${t.deadline?(late?'past due · ':'')+npFmt(t.deadline):'set a date'}</div></td>
+      <td class="c-st" data-l="Status"><select id="nps-${i}" class="st ${st}" data-c="np" data-id="${i}" data-k="status">${Object.entries(NPST).map(([k,v])=>`<option value="${k}"${k===st?' selected':''}>${v}</option>`).join('')}</select></td>
+      <td class="c-note" data-l="Notes"><textarea id="npn-${i}" data-c="np" data-id="${i}" data-k="notes" placeholder="blocker, link, who to chase">${esc(t.notes)}</textarea></td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="np-add"><input type="text" id="npadd-${p.id}" data-draft placeholder="Add a task to ${esc(p.name.toLowerCase())}" aria-label="New task title"><button data-act="npadd" data-ph="${p.id}">Add task</button></div></div>`;}).join('');
+  return `<datalist id="np-people">${people.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+  <div class="card"><div class="row between"><h2>Nationals prep</h2><span class="small muted">USCCS National Championship · IMG Academy, Bradenton FL · Nov 11–15, 2026 · Today: ${npFmt(T)}</span></div>
+    <div class="np-sum">
+      <div class="np-tile"><b>${tasks.length}</b><span>Tasks</span></div>
+      <div class="np-tile none"><b>${c.none}</b><span>Not started</span></div>
+      <div class="np-tile prog"><b>${c.prog}</b><span>In progress</span></div>
+      <div class="np-tile stuck"><b>${c.stuck}</b><span>Stuck</span></div>
+      <div class="np-tile done"><b>${c.done}</b><span>Done</span></div>
+      <div class="np-tile${overdue?' stuck':''}"><b>${overdue}</b><span>Past deadline</span></div></div></div>
+  <div class="card"><div class="row between"><h2>Timeline</h2><span class="small muted">Bars run from when work can start to the deadline. A dark tick marks the deadline; the shaded band is the tournament.</span></div>
+    <div class="np-gantt"><div class="g-inner">${rows}</div></div>
+    <div class="np-legend"><span><i style="background:var(--s-none)"></i>Not started</span><span><i style="background:var(--s-prog)"></i>In progress</span><span><i style="background:var(--s-stuck)"></i>Stuck</span><span><i style="background:var(--s-done)"></i>Done</span><span><i style="background:var(--today);width:3px"></i>Today</span></div></div>
+  <div class="row between"><h2>Checklist</h2><span class="small muted">Assign an owner, set a status, and leave notes. Everyone using the app sees the same checklist.</span></div>
+  ${phases}
+  ${`<div class="np-ref card">
+    <strong>Reference (USCCS Nationals email + Tournament Guide)</strong>
+    <ul>
+      <li>Venue: IMG Academy, 5650 Bollettieri Blvd, Bradenton, FL 34210. Grass fields, 115 × 75 yd, sun covers on both benches, lights only on the Stadium field. Nearest airport SRQ (~15 min); TPA and PIE ~45–60 min.</li>
+      <li>On-site check-in: Gold Tue 3–7 PM · Silver Wed 3–7 PM · Bronze Thu 3–7 PM, at the fields. Outside those hours, email Luciano Parrotta (luciano@collegeclubsoccer.com) before 7 PM on your division's day or the team is fined $150. Teams also check in 90 min before their first match. A no-show means a two-year Nationals ban and league probation.</li>
+      <li>Game windows: Gold first game as early as Wed 8 AM, Silver as early as Thu 8 AM. Men's finals: Gold Sat Nov 14 at 7 PM; Silver Sun Nov 15 at 1:30 PM. Awards follow each final.</li>
+      <li>Game day: field marshal check-in 30 min before kickoff; not present 15 min before kickoff may forfeit. Every player shows a physical or digital Student/government ID (official app or Apple/Google Wallet only; a photo of an ID is not accepted). Up to 5 coaches/staff in the technical area, each with a wristband. Bench players wear the pink pinnies. Unlimited subs at any stoppage. Game ball: Capelli Plasma Pro.</li>
+      <li>Format: groups of 4, 3 group games, two 40-min halves with 7-min halftime, ties stand. Men's Gold and Silver: only group winners advance; no consolation games. Knockouts: one full 10-min OT (no golden goal), then PKs (5 each, then sudden death; only players on the field at the end of OT kick). Points 3/1/0. Tiebreakers in order: goal difference (capped +5 per match), head-to-head, goals for, goals against, fewest disciplinary points, coin toss.</li>
+      <li>Uniforms: two full sets (one white/light, one dark/bright). Numbers 00–99, unique per player, no taped-on numbers; sock tape matches sock color; visiting team changes on a clash.</li>
+      <li>Eligibility: same institution, 18+, at least half-time enrolled, club-sport approved, no concurrent NCAA/NAIA, no pro experience; max 5 Designated Players. 25-player roster cap. Season discipline carries over; the PAD committee reviews all red cards; suspended players leave the facility for that match.</li>
+      <li>On site: Gatorade and water on every field; athletic trainers between fields and an ATC tent near the main entrance for taping; proctored exam desk (request through Nicole with professor approval); merch tent. Spectators: $50 tournament pass or $25 day pass.</li>
+      <li>Campus: gated entry, no alcohol, no pets (service animals OK), no drones, no team live-streaming. Automated lightning detection; evacuate to vehicles or buildings when notified.</li>
+      <li>Questions: Nicole Jackson, Operations Manager/Tournament Director · 541.497.1649 · Nicole@collegeclubsoccer.com</li>
+    </ul>
+  </div>`}`;
+}
+const npT={};
+function npSave(id,patch){const k='np-'+id,cur=local.config.get(k)||{};put('config',k,{...cur,...patch},0);}
+function npCommitDate(el){clearTimeout(npT[el.id]);const v=el.value;if(v&&!/^20\d\d-\d\d-\d\d$/.test(v))return;const id=el.dataset.npd,t=npTasks().find(x=>x.id===id);if(!t||(t.deadline||'')===v)return;npSave(id,{deadline:v});}
+document.addEventListener('change',e=>{const el=e.target;if(el.dataset&&el.dataset.npd){clearTimeout(npT[el.id]);npT[el.id]=setTimeout(()=>npCommitDate(el),1200);}});
+document.addEventListener('focusout',e=>{const el=e.target;if(el.dataset&&el.dataset.npd)npCommitDate(el);});
+document.addEventListener('keydown',e=>{const el=e.target;if(e.key!=='Enter')return;if(el.dataset&&el.dataset.npd){e.preventDefault();npCommitDate(el);}else if(el.id&&el.id.startsWith('npadd-')){e.preventDefault();ACT.npadd({ph:el.id.slice(6)});}});
+
 /* ---------- actions ---------- */
 function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
 function addPayment(pid,amt,date,note){
@@ -742,6 +914,9 @@ const ACT={
   delline(d){mutLines(d.kind,d.id,ls=>{const i=ls.findIndex(l=>l.id===d.l);if(i>=0)ls.splice(i,1);else if(d.l==='legacy')ls.length=0;});},
   lmatch(){S.lmatch=ledMatchDates();toast(S.lmatch.matched.length+' dates matched');render();},
   lmatchclose(){S.lmatch=null;render();},
+  npadd(d){const el=$('npadd-'+d.ph);const title=(el&&el.value||'').trim().slice(0,140);if(!title)return toast('Type a task first.');
+    const id='c-'+Date.now().toString(36);put('config','np-'+id,{phase:d.ph,title,desc:'',start:today(),deadline:'',owner:'',status:'none',notes:'',custom:true},0);el.value='';toast('Task added');},
+  npdel(d){S.armed=null;del('config','np-'+d.id);},
   limp(){S.limp=!S.limp;render();},
   lfilter(d){S.lfilter=d.f;render();},
   lopen(d){S.lopen=S.lopen||{};S.lopen[d.id]=!S.lopen[d.id];render();},
@@ -785,6 +960,7 @@ document.addEventListener('change',e=>{
   else if(d.c==='fmode'){setCfg(c=>{c.fundMode=el.value==='qualified'?'qualified':'all';});}
   else if(d.c==='ltype'){S.ltype=el.value==='rev'?'rev':'exp';render();}
   else if(d.c==='lset'){const s={...ledSet()};s[d.k]=d.k==='foundation'?money(el.value):el.value.trim().slice(0,60);put('config','ledgerset',s);}
+  else if(d.c==='np'){const v=d.k==='notes'?el.value.slice(0,500):d.k==='status'?(el.value in NPST?el.value:'none'):el.value.trim().slice(0,80);npSave(d.id,{[d.k]:v});}
   else if(d.c==='lov'){const o={...(local.config.get(d.id)||{})};o[d.k]=el.value.trim().slice(0,d.k==='notes'?200:60);put('config',d.id,o);}
   else if(d.c==='led'){const e=local.config.get(d.id);if(!e)return;const n={...e};
     if(d.k==='amount'){const a=money(el.value);if(!a){toast('Enter an amount greater than zero.');render();return;}n.amount=a;}
@@ -807,7 +983,7 @@ document.addEventListener('focusout',e=>{const el=e.target;if(el.dataset&&el.dat
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.ld){e.preventDefault();commitLDate(e.target);}});
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
-try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger'].includes(h))S.tab=h;}catch(e){}
+try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger','nationals'].includes(h))S.tab=h;}catch(e){}
 setStatus();render();boot();
 </script>
 </body>
