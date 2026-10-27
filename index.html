@@ -291,18 +291,18 @@ function compute(players, trips, payments, cfg){
     goers.forEach(r=>{r.travel+=share;r.tripCount++;r.items.push({label:'Travel: '+(t.name||'Untitled trip'),amount:share});});
   });
   list.forEach(r=>r.gross=r.fixed+r.travel);
+  let orphanPaid=0;
+  [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r) r.paid+=a; else orphanPaid+=a;});
   const F=Math.max(0,+cfg.fundraising||0);
   const own=list.filter(r=>r.ownFund),ownTotal=own.reduce((t,r)=>t+r.ownAmt,0),P=Math.max(0,F-ownTotal);
   own.forEach(r=>{r.credit=Math.min(r.gross,r.ownAmt);r.ownUnused=r.ownAmt-r.credit;});
   const qMode=cfg.fundMode==='qualified', psq=list.filter(r=>r.squad==='practice'&&r.qualified), elig=[...(qMode?tsq.filter(r=>r.qualified):tsq),...psq].filter(r=>!r.ownFund), ne=elig.length, nPrac=psq.filter(r=>!r.ownFund).length;
   if(ne){
     if(cfg.rollover){
-      let rem=P; const s=[...elig].sort((a,b)=>a.gross-b.gross);
-      s.forEach((r,i)=>{const level=rem/(ne-i); r.credit=Math.min(r.gross,level); rem-=r.credit;});
+      const cap=r=>Math.max(0,r.gross-r.paid);let rem=P; const s=[...elig].sort((a,b)=>cap(a)-cap(b));
+      s.forEach((r,i)=>{const level=rem/(ne-i); r.credit=Math.min(cap(r),level); rem-=r.credit;});
     } else elig.forEach(r=>r.credit=Math.min(r.gross,P/ne));
   }
-  let orphanPaid=0;
-  [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r) r.paid+=a; else orphanPaid+=a;});
   const tot={gross:0,fixed:0,travel:0,credit:0,net:0,paid:0,owed:0,over:0};
   list.forEach(r=>{r.net=r.gross-r.credit;r.balance=r.net-r.paid;
     tot.gross+=r.gross;tot.fixed+=r.fixed;tot.travel+=r.travel;tot.credit+=r.credit;tot.net+=r.net;tot.paid+=r.paid;
@@ -311,6 +311,8 @@ function compute(players, trips, payments, cfg){
   if(ownTotal>F+0.005) warnings.push(`Personal fundraising entered for individual players (${fmt(ownTotal)}) is more than the total raised (${fmt(F)}). Check the total on the Costs & fundraising tab.`);
   own.filter(r=>r.ownUnused>0.005).forEach(r=>warnings.push(`${r.name} raised ${fmt(r.ownAmt)} for his own dues, which is ${fmt(r.ownUnused)} more than he owes. The extra stays his and is not shared.`));
   if(unused>0.005) warnings.push(ne?`${fmt(unused)} of fundraising is not applied, because some players' dues are smaller than their credit.`:qMode?`Fundraising is set to qualified players only, and no travel squad players are checked, so none of it is applied.`:`Fundraising has no travel squad players to apply to.`);
+  if(!cfg.rollover){const od=elig.filter(r=>r.credit>0.005&&r.gross-r.credit-r.paid<-0.005);
+    if(od.length)warnings.push(`${od.map(r=>r.name).join(', ')} ${od.length===1?'has':'have'} paid more than ${od.length===1?'his':'their'} dues after fundraising credit, so ${od.length===1?'he is':'they are'} owed a refund. To give that credit to players who still owe instead, turn on "pass the extra" on the Costs & fundraising tab.`);}
   if(orphanPaid>0.005) warnings.push(`${fmt(orphanPaid)} in payments belongs to players no longer on the roster.`);
   list.sort((a,b)=>a.name.localeCompare(b.name));
   return {list,rows,tot,tripInfo,warnings,nTravel:n,nElig:ne,qMode,perCredit:ne?P/ne:0,unused,F,P,ownTotal,nOwn:own.length,nPrac};
@@ -552,7 +554,7 @@ function vCosts(C){
     <div class="field"><span>Credit per player</span><span class="share num">${C.nElig?fmt(C.perCredit):'—'}</span></div></div>
     ${fundChecklist(C)}
     ${ownFundHtml(C)}
-    <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>If a player's credit is larger than his dues, pass the extra to players sharing fundraising who still owe</span></label>
+    <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>Don't let fundraising create refunds: cap each player's credit at what he still owes after his payments, and pass the extra to players who still owe</span></label>
     <span class="small muted">${C.qMode?'Fundraising is split evenly among the checked players. Unchecked players get no credit.':'Fundraising is split evenly across the travel squad and any checked practice players.'} A credit never pushes a player's dues below zero.</span></div>`;
 }
 function feeUsage(){
