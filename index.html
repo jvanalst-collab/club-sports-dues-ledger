@@ -130,10 +130,11 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
 .field>span.small{text-transform:none;letter-spacing:0;font-weight:400;font-size:12px}
 .lpay{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk)}
 .expline .per{order:2;font-size:12px;color:var(--muted);white-space:nowrap;min-width:178px}
+@media (min-width:561px){.expline .per{white-space:normal;max-width:250px}}
 .expline .per button.link.small{font-size:12px;padding:0 2px}
 .expline .feechk{order:3}.expline button.danger{order:4}
 .expline:has(.per){grid-template-columns:minmax(0,1fr) 110px auto auto auto}
-@media (max-width:560px){.expline:has(.per){grid-template-columns:minmax(0,1fr) 96px auto auto}.expline .per{grid-column:1 / -1;order:5;min-width:0;margin-top:-2px}}
+@media (max-width:560px){.expline:has(.per){grid-template-columns:minmax(0,1fr) 96px auto auto}.expline .per{grid-column:1 / -1;order:5;min-width:0;margin-top:-2px;white-space:normal}}
 .feechk{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;padding:0 4px}
 .feechk input{width:15px;height:15px;accent-color:var(--accent)}
 .expline.isfee input.money{color:var(--muted);text-decoration:line-through}
@@ -278,24 +279,38 @@ const feeLines=a=>(a||[]).reduce((t,l)=>t+(l.fee?Math.max(0,+l.amount||0):0),0);
 const tripCost=t=>Array.isArray(t.expenses)?sumLines(t.expenses):Math.max(0,+t.cost||0);
 const fixedAmt=it=>Array.isArray(it.lines)?sumLines(it.lines):Math.max(0,+it.amount||0);
 function payersFor(it,l,people){const src=l&&l.pay?l.pay:it;const sk=new Set(src.skip||[]),inc=new Set(src.incl||[]);return people.filter(r=>r.squad==='practice'?inc.has(r.id):!sk.has(r.id));}
+const feeDate=k=>{try{if(typeof local==='undefined')return '';const o=local.config.get('lov-'+k);return (o&&o.date)||'';}catch(e){return '';}};
+function feeAlloc(trips,fixed,people,start){
+  const items=[];
+  [...trips].forEach(([tid,t])=>(Array.isArray(t.expenses)?t.expenses:[]).forEach(l=>{const a=Math.max(0,+l.amount||0);if(!l.fee||!a)return;const key='t-'+tid+'-'+l.id;
+    items.push({key,label:(t.name||'Trip')+': '+(l.label||'Expense'),cost:a,date:feeDate(key)||t.date||l.date||'',ord:items.length,tid});}));
+  (fixed||[]).forEach(it=>(Array.isArray(it.lines)?it.lines:[]).forEach(l=>{let a=Math.max(0,+l.amount||0);if(!l.fee||!a)return;if(it.basis==='each')a*=payersFor(it,l,people).length;if(!a)return;const key='f-'+it.id+'-'+l.id;
+    items.push({key,label:(it.name||'Squad cost')+': '+(l.label||'Expense'),cost:a,date:feeDate(key)||l.date||'',ord:items.length,cat:it.id});}));
+  const sorted=[...items].sort((x,y)=>(x.date||'9999').localeCompare(y.date||'9999')||x.ord-y.ord);
+  let rem=Math.max(0,+start||0);sorted.forEach(x=>{x.covered=Math.round(Math.min(x.cost,rem)*100)/100;rem=Math.round((rem-x.covered)*100)/100;x.over=Math.round((x.cost-x.covered)*100)/100;});
+  return {items:sorted,map:new Map(items.map(x=>[x.key,x])),start:Math.max(0,+start||0),covered:sorted.reduce((t,x)=>t+x.covered,0),over:sorted.reduce((t,x)=>t+x.over,0),left:rem};
+}
+const feeStartOf=c=>c&&c.feeStart!=null?Math.max(0,+c.feeStart||0):5100;
 function compute(players, trips, payments, cfg){
   const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',qualified:!!p.fundQualified,ownFund:!!p.ownFund,ownAmt:Math.max(0,+p.ownAmt||0),skipped:[],items:[],fixed:0,travel:0,tripCount:0,credit:0,paid:0}));
   const rows=new Map(list.map(r=>[r.id,r]));
   const tsq=list.filter(r=>r.squad==='travel'), n=tsq.length, warnings=[];
+  const fee=feeAlloc(trips,cfg.fixed,list,feeStartOf(cfg)),fOver=k=>(fee.map.get(k)||{}).over||0;
   (cfg.fixed||[]).forEach(it=>{
-    const amt=fixedAmt(it); if(!amt) return;
     const lines=Array.isArray(it.lines)?it.lines:[{id:'legacy',amount:+it.amount||0}],got=new Map();
-    lines.forEach(l=>{const a=l.fee?0:Math.max(0,+l.amount||0);if(!a)return;const ps=payersFor(it,l,list);
+    if(!fixedAmt(it)&&!lines.some(l=>l.fee&&fOver('f-'+it.id+'-'+l.id)))return;
+    lines.forEach(l=>{const fo=l.fee?fOver('f-'+it.id+'-'+l.id):0,a=l.fee?fo:Math.max(0,+l.amount||0);if(!a)return;const ps=payersFor(it,l,list);
       if(!ps.length){warnings.push(`"${it.name||'Squad cost'}${l.label?': '+l.label:''}" has no players to bill.`);return;}
-      const each=it.basis==='each'?a:a/ps.length;ps.forEach(r=>got.set(r,(got.get(r)||0)+each));});
+      const each=l.fee?a/ps.length:(it.basis==='each'?a:a/ps.length);ps.forEach(r=>got.set(r,(got.get(r)||0)+each));});
     got.forEach((v,r)=>{r.fixed+=v;r.items.push({label:it.name||'Squad cost',amount:v});});
     tsq.forEach(r=>{if(!got.has(r))r.skipped.push(it.name||'Squad cost');});
   });
   const tripInfo=new Map();
   [...trips].forEach(([id,t])=>{
     const goers=[...new Set(t.travelers||[])].map(x=>rows.get(x)).filter(Boolean);
-    const cost=tripCost(t), share=goers.length?cost/goers.length:0;
-    tripInfo.set(id,{count:goers.length,share,cost});
+    const tl=Array.isArray(t.expenses)?t.expenses:[],tOver=tl.reduce((x,l)=>x+(l.fee?fOver('t-'+id+'-'+l.id):0),0),tCov=tl.reduce((x,l)=>x+(l.fee?((fee.map.get('t-'+id+'-'+l.id)||{}).covered||0):0),0);
+    const cost=tripCost(t)+tOver, share=goers.length?cost/goers.length:0;
+    tripInfo.set(id,{count:goers.length,share,cost,feeCovered:tCov,feeOver:tOver});
     if(cost>0&&!goers.length) warnings.push(`"${t.name||'Untitled trip'}" has a cost but no travelers checked, so nobody is billed for it.`);
     goers.forEach(r=>{r.travel+=share;r.tripCount++;r.items.push({label:'Travel: '+(t.name||'Untitled trip'),amount:share});});
   });
@@ -322,9 +337,10 @@ function compute(players, trips, payments, cfg){
   if(unused>0.005) warnings.push(ne?`${fmt(unused)} of fundraising is not applied, because some players' dues are smaller than their credit.`:qMode?`Fundraising is set to qualified players only, and no travel squad players are checked, so none of it is applied.`:`Fundraising has no travel squad players to apply to.`);
   if(!cfg.rollover){const od=elig.filter(r=>r.credit>0.005&&r.gross-r.credit-r.paid<-0.005);
     if(od.length)warnings.push(`${od.map(r=>r.name).join(', ')} ${od.length===1?'has':'have'} paid more than ${od.length===1?'his':'their'} dues after fundraising credit, so ${od.length===1?'he is':'they are'} owed a refund. To give that credit to players who still owe instead, turn on "pass the extra" on the Costs & fundraising tab.`);}
+  if(fee.over>0.005) warnings.push(`Fee-paid expenses are ${fmt(fee.over)} more than the ${fmt(fee.start)} Rec Center fee. The extra is billed to players' dues, starting with the latest fee-paid expense. See the Rec Center fee panel on the Costs & fundraising tab.`);
   if(orphanPaid>0.005) warnings.push(`${fmt(orphanPaid)} in payments belongs to players no longer on the roster.`);
   list.sort((a,b)=>a.name.localeCompare(b.name));
-  return {list,rows,tot,tripInfo,warnings,nTravel:n,nElig:ne,qMode,perCredit:ne?P/ne:0,unused,F,P,ownTotal,nOwn:own.length,nPrac};
+  return {list,rows,tot,tripInfo,warnings,nTravel:n,nElig:ne,qMode,perCredit:ne?P/ne:0,unused,F,P,ownTotal,nOwn:own.length,nPrac,fee};
 }
 function fmt(n){n=Math.round((+n||0)*100)/100; if(Object.is(n,-0))n=0; const s=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0?'−$':'$')+s;}
 /*CALC-END*/
@@ -520,10 +536,10 @@ function vTrips(C){
     <div class="row">
       <label class="field grow"><span>Trip</span><input type="text" id="tn-${esc(id)}" data-c="trip" data-id="${esc(id)}" data-k="name" value="${esc(t.name)}"></label>
       <label class="field"><span>Date</span><input type="date" id="td-${esc(id)}" data-c="trip" data-id="${esc(id)}" data-k="date" value="${esc(t.date||'')}"></label>
-      <div class="field"><span>Billed to travelers</span><span class="share num">${fmt(info.cost||0)}</span>${feeLines(t.expenses)?`<span class="small muted">plus ${fmt(feeLines(t.expenses))} paid by the fee</span>`:''}</div>
+      <div class="field"><span>Billed to travelers</span><span class="share num">${fmt(info.cost||0)}</span>${info.feeCovered?`<span class="small muted">plus ${fmt(info.feeCovered)} paid by the fee</span>`:''}${info.feeOver?`<span class="small" style="color:var(--bad)">incl. ${fmt(info.feeOver)} over the fee budget</span>`:''}</div>
       <div class="field"><span>Per traveler</span><span class="share num">${info.count?fmt(info.share):'—'}</span></div>
     </div>
-    ${linesHtml('exp',id,Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]),l=>{const a=Math.max(0,+l.amount||0);if(!a)return '';if(l.fee)return 'fee-paid · $0 / traveler';return info.count?`${fmt(a/info.count)} / traveler`:'no travelers yet';})}
+    ${linesHtml('exp',id,Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]),l=>{const a=Math.max(0,+l.amount||0);if(!a)return '';if(l.fee){const x=C.fee.map.get('t-'+id+'-'+l.id)||{over:0,covered:a};if(!x.over)return 'fee-paid · $0 / traveler';return `fee covers ${fmt(x.covered)} · ${fmt(x.over)} billed${info.count?' · '+fmt(x.over/info.count)+' / traveler':''}`;}return info.count?`${fmt(a/info.count)} / traveler`:'no travelers yet';})}
     <div class="row between"><span class="eyebrow">${info.count} traveling</span><span class="row">
       <button data-act="alltravel" data-id="${esc(id)}">Check all travel squad</button><button data-act="clearall" data-id="${esc(id)}">Clear</button>${armBtn('trip:'+id,'Delete trip','deltrip',`data-id="${esc(id)}"`)}</span></div>
     ${ps.length?`<div class="checks">${ps.map(p=>`<label><input type="checkbox" id="tv-${esc(id)}-${esc(p.id)}" data-c="trav" data-id="${esc(id)}" data-p="${esc(p.id)}"${set.has(p.id)?' checked':''}><span>${esc(p.name)}</span>${p.squad==='practice'?'<span class="tag ps">P</span>':''}</label>`).join('')}</div>`:'<span class="muted small">Add players on the Roster tab to check off travelers.</span>'}
@@ -549,7 +565,7 @@ function vCosts(C){
     ${(c.fixed||[]).filter(it=>it.group!=='usccs').map(it=>`<div class="costblock"><div class="row">
       <label class="field grow"><span>Cost</span><input type="text" id="fn-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="name" value="${esc(it.name)}"></label>
       <label class="field"><span>Entered as</span><select id="fb-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="basis"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
-      <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span>${feeLines(it.lines)?`<span class="small muted">plus ${fmt(feeLines(it.lines))} fee-paid</span>`:''}</div>
+      <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span>${(()=>{const xs=C.fee.items.filter(x=>x.cat===it.id),cv=xs.reduce((t,x)=>t+x.covered,0),ov=xs.reduce((t,x)=>t+x.over,0);return (cv?`<span class="small muted">plus ${fmt(cv)} fee-paid</span>`:'')+(ov?`<span class="small" style="color:var(--bad)">plus ${fmt(ov)} over the fee budget, billed</span>`:'');})()}</div>
       <div class="field"><span>Per player</span><span class="share num">${catPayers(it,C)?fmt(catPer(it,C)):'—'}</span></div>
       <button class="danger" data-act="delfixed" data-id="${esc(it.id)}">Remove category</button></div>
       ${linesHtml('fl',it.id,Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]),linePer(it,C),lineAfter(it,C))}${payersHtml(it,C)}</div>`).join('')}
@@ -567,26 +583,23 @@ function vCosts(C){
     <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fr-roll" data-c="roll"${c.rollover?' checked':''} style="width:16px;height:16px;accent-color:var(--accent)"><span>Don't let fundraising create refunds: cap each player's credit at what he still owes after his payments, and pass the extra to players who still owe</span></label>
     <span class="small muted">${C.qMode?'Fundraising is split evenly among the checked players. Unchecked players get no credit.':'Fundraising is split evenly across the travel squad and any checked practice players.'} A credit never pushes a player's dues below zero.</span></div>`;
 }
-function feeUsage(){
-  const items=[],c=cfg(),nT=pid=>[...local.players].filter(([id,p])=>p.squad!=='practice'&&!(pid||[]).includes(id)).length;
-  local.trips.forEach(t=>(Array.isArray(t.expenses)?t.expenses:[]).forEach(l=>{const a=Math.max(0,+l.amount||0);if(l.fee&&a)items.push({label:(t.name||'Trip')+': '+(l.label||'Expense'),amount:a,tab:'trips'});}));
-  (c.fixed||[]).forEach(it=>(Array.isArray(it.lines)?it.lines:[]).forEach(l=>{let a=Math.max(0,+l.amount||0);if(it.basis==='each')a*=payersFor(it,l,[...local.players].map(([id,p])=>({id,squad:p.squad==='practice'?'practice':'travel'}))).length;if(l.fee&&a)items.push({label:(it.name||'Squad cost')+': '+(l.label||'Expense'),amount:a});}));
-  return {items,spent:items.reduce((t,x)=>t+x.amount,0)};
-}
+function feeNow(){const c=cfg();return feeAlloc(local.trips,c.fixed,[...local.players].map(([id,p])=>({id,squad:p.squad==='practice'?'practice':'travel'})),feeStartOf(c));}
 function feePanel(){
-  const c=cfg(),start=c.feeStart==null?5100:+c.feeStart||0,u=feeUsage(),left=start-u.spent;
-  return `<div class="card"><div class="row between"><h2>Rec Center fee</h2><span class="small muted">Expenses checked Fee are paid from this balance and are not billed to players</span></div>
+  const u=feeNow();
+  return `<div class="card"><div class="row between"><h2>Rec Center fee</h2><span class="small muted">Fee-checked expenses are paid from this balance, oldest first, until it runs out. Anything past it is billed to dues.</span></div>
     <div class="row">
-      <label class="field"><span>Starting balance</span><input type="text" inputmode="decimal" class="money" id="fee-start" data-c="feestart" value="${mval(start)}" placeholder="0.00"></label>
-      <div class="field"><span>Paid by the fee</span><span class="share num">${fmt(u.spent)}</span></div>
-      <div class="field"><span>Remaining</span><span class="share num" style="${left<-0.005?'color:var(--bad)':''}">${fmt(left)}</span></div></div>
-    ${left<-0.005?`<div class="banner">Fee-paid expenses are ${fmt(-left)} more than the fee balance. Uncheck Fee on some expenses so the rest are billed to dues, or check the starting balance.</div>`:''}
-    ${u.items.length?`<div class="feelist">${u.items.map(x=>`<div><span>${esc(x.label)}</span><span class="num">${fmt(x.amount)}</span></div>`).join('')}</div>`:'<span class="small muted">No expenses are checked Fee yet. Check Fee next to any expense on this tab, the USCCS costs tab, or a trip.</span>'}</div>`;
+      <label class="field"><span>Starting balance</span><input type="text" inputmode="decimal" class="money" id="fee-start" data-c="feestart" value="${mval(u.start)}" placeholder="0.00"></label>
+      <div class="field"><span>Paid by the fee</span><span class="share num">${fmt(u.covered)}</span></div>
+      <div class="field"><span>Remaining</span><span class="share num">${fmt(u.left)}</span></div>
+      ${u.over>0.005?`<div class="field"><span>Over the fee budget</span><span class="share num" style="color:var(--bad)">${fmt(u.over)}</span><span class="small muted">billed to dues</span></div>`:''}</div>
+    ${u.over>0.005?`<div class="banner">Fee-checked expenses total ${fmt(u.covered+u.over)}, which is ${fmt(u.over)} more than the ${fmt(u.start)} fee. The fee covers expenses in date order, so the extra is billed to players' dues on the latest ones, marked below. To change which expenses the fee covers, uncheck Fee on some, or change their dates in the Ledger tab.</div>`:''}
+    ${u.items.length?`<div class="feelist">${u.items.map(x=>`<div><span>${x.date?`<span class="muted num">${usDate(x.date)}</span> `:''}${esc(x.label)}${x.over>0.005?` <span class="pill owes">${x.covered>0.005?fmt(x.over)+' billed to dues':'billed to dues'}</span>`:''}</span><span class="num">${fmt(x.cost)}</span></div>`).join('')}</div>`:'<span class="small muted">No expenses are checked Fee yet. Check Fee next to any expense on this tab, the USCCS costs tab, or a trip.</span>'}</div>`;
 }
 function catPayers(it,C){return payersFor(it,null,C.list).length;}
-function catPer(it,C){return (Array.isArray(it.lines)?it.lines:[]).reduce((t,l)=>{if(l.fee)return t;const a=Math.max(0,+l.amount||0),n=payersFor(it,l,C.list).length;return t+(n?(it.basis==='each'?a:a/n):0);},0);}
+function catPer(it,C){return (Array.isArray(it.lines)?it.lines:[]).reduce((t,l)=>{const n=payersFor(it,l,C.list).length;if(!n)return t;if(l.fee){const o=(C.fee.map.get('f-'+it.id+'-'+l.id)||{}).over||0;return t+o/n;}const a=Math.max(0,+l.amount||0);return t+(it.basis==='each'?a:a/n);},0);}
 function linePer(it,C){return l=>{const a=Math.max(0,+l.amount||0),n=payersFor(it,l,C.list).length,k=it.id+'|'+l.id,own=!!l.pay;
-  const txt=!a?'':l.fee?'fee-paid · $0 / player':!n?'no players charged':`${fmt(it.basis==='each'?a:a/n)} / player`;
+  const fx=l.fee?C.fee.map.get('f-'+it.id+'-'+l.id):null;
+  const txt=!a?'':l.fee?(fx&&fx.over?`fee covers ${fmt(fx.covered)} · ${fmt(fx.over)} billed${n?' · '+fmt(fx.over/n)+' / player':''}`:'fee-paid · $0 / player'):!n?'no players charged':`${fmt(it.basis==='each'?a:a/n)} / player`;
   return `${txt}${txt?' · ':''}<button class="link small" data-act="lpay" data-k="${esc(k)}">${own?`${n} chosen`:'who pays'}</button>`;};}
 function lineAfter(it,C){return l=>{const k=it.id+'|'+l.id;if(S.lpay!==k)return '';const src=l.pay||it,sk=new Set(src.skip||[]),inc=new Set(src.incl||[]);
   const box=r=>`<label><input type="checkbox" id="lp-${esc(it.id)}-${esc(l.id)}-${esc(r.id)}" data-c="lskip" data-id="${esc(it.id)}" data-l="${esc(l.id)}" data-p="${esc(r.id)}"${(r.squad==='practice'?inc.has(r.id):!sk.has(r.id))?' checked':''}><span>${esc(r.name)}</span>${r.squad==='practice'?'<span class="tag ps">P</span>':''}</label>`;
@@ -657,12 +670,15 @@ const fixedCat=it=>it.id==='gear'?'Apparel':it.id==='coach'?'Coach Pay':it.id===
 const AUTOFROM={trips:'Trips tab',costs:'Costs & fundraising tab',usccs:'USCCS costs tab',payments:'Payments tab',fund:'Costs & fundraising tab'};
 const AUTOTAB={trips:'trips',costs:'costs',usccs:'usccs',payments:'payments',fund:'costs'};
 function ledAuto(){
-  const out=[],c=cfg(),nT=[...local.players.values()].filter(p=>p.squad!=='practice').length;
+  const out=[],c=cfg(),nT=[...local.players.values()].filter(p=>p.squad!=='practice').length,FEE=feeNow();
   local.trips.forEach((t,tid)=>{const ls=Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]);
-    ls.forEach(l=>{const a=Math.max(0,+l.amount||0);if(!a)return;out.push({key:'t-'+tid+'-'+l.id,auto:'trips',type:'exp',amount:a,desc:(t.name||'Trip')+': '+(l.label||'Expense'),date:t.date||l.date||'',category:travelCat(l.label),source:l.fee?'fee':'none'});});});
+    ls.forEach(l=>{const a=Math.max(0,+l.amount||0);if(!a)return;const fx=l.fee?FEE.map.get('t-'+tid+'-'+l.id):null;
+      if(fx&&fx.over>0.005){out.push({key:'t-'+tid+'-'+l.id+'-over',auto:'trips',type:'exp',amount:fx.over,desc:(t.name||'Trip')+': '+(l.label||'Expense')+' (over fee budget)',date:t.date||l.date||'',category:travelCat(l.label),source:'none'});if(fx.covered<0.005)return;}
+      out.push({key:'t-'+tid+'-'+l.id,auto:'trips',type:'exp',amount:fx?fx.covered:a,desc:(t.name||'Trip')+': '+(l.label||'Expense'),date:t.date||l.date||'',category:travelCat(l.label),source:l.fee?'fee':'none'});});});
   (c.fixed||[]).forEach(it=>{const ls=Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]);
     const ppl=[...local.players].map(([id,p])=>({id,squad:p.squad==='practice'?'practice':'travel'}));
     ls.forEach(l=>{let a=Math.max(0,+l.amount||0);if(!a)return;const nP=payersFor(it,l,ppl).length;if(it.basis==='each')a=Math.round(a*nP*100)/100;if(!a)return;
+      {const fx=l.fee?FEE.map.get('f-'+it.id+'-'+l.id):null;if(fx&&fx.over>0.005){out.push({key:'f-'+it.id+'-'+l.id+'-over',auto:it.id==='usccs'?'usccs':'costs',type:'exp',amount:fx.over,desc:(it.name||'Squad cost')+': '+(l.label||'Expense')+' (over fee budget)',date:l.date||'',category:fixedCat(it),source:'none'});if(fx.covered<0.005)return;a=fx.covered;}}
       out.push({key:'f-'+it.id+'-'+l.id,auto:it.id==='usccs'?'usccs':'costs',type:'exp',amount:a,desc:(it.name||'Squad cost')+': '+(l.label||'Expense')+(it.basis==='each'?` (${nP} players)`:''),date:l.date||'',category:fixedCat(it),source:l.fee?'fee':'none'});});});
   local.payments.forEach((p,pid)=>{const a=Math.max(0,+p.amount||0);if(!a)return;const pl=local.players.get(p.playerId);
     out.push({key:'p-'+pid,auto:'payments',type:'rev',amount:a,desc:'06389-'+(pl?pl.name:'Removed player'),date:p.date||'',category:'Member Dues',source:'dues',notes:p.note||''});});
