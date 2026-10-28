@@ -127,6 +127,11 @@ tr.detail td{background:var(--sunk);white-space:normal;text-align:left;padding:1
 
 .explines{display:flex;flex-direction:column;gap:6px;max-width:540px}
 .expline{display:grid;grid-template-columns:minmax(0,1fr) 110px auto auto;gap:6px;align-items:center}
+.field>span.small{text-transform:none;letter-spacing:0;font-weight:400;font-size:12px}
+.expline .per{order:2;font-size:12px;color:var(--muted);white-space:nowrap;min-width:92px}
+.expline .feechk{order:3}.expline button.danger{order:4}
+.expline:has(.per){grid-template-columns:minmax(0,1fr) 110px auto auto auto}
+@media (max-width:560px){.expline:has(.per){grid-template-columns:minmax(0,1fr) 96px auto auto}.expline .per{grid-column:1 / -1;order:5;min-width:0;margin-top:-2px}}
 .feechk{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;padding:0 4px}
 .feechk input{width:15px;height:15px;accent-color:var(--accent)}
 .expline.isfee input.money{color:var(--muted);text-decoration:line-through}
@@ -456,7 +461,7 @@ function squadTag(s){return s==='practice'?'<span class="tag ps">Practice</span>
 function playerOpts(sel){return [...local.players].map(([id,p])=>({id,name:p.name||''})).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}"${p.id===sel?' selected':''}>${esc(p.name)}</option>`).join('');}
 function armBtn(key,label,act,attrs){return S.armed===key?`<button class="danger armed" data-act="${act}" ${attrs}>Confirm</button> <button data-act="disarm">Cancel</button>`:`<button class="danger" data-act="arm" data-key="${esc(key)}">${label}</button>`;}
 
-function linesHtml(kind,pid,lines){return `<div class="explines"><div class="row between"><span class="eyebrow">Expenses</span><span class="small muted">Check Fee if the Rec Center fee pays it, not dues</span></div>${(lines||[]).map(l=>`<div class="expline${l.fee?' isfee':''}"><input type="text" id="${kind}l-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="label" value="${esc(l.label)}" aria-label="Expense" placeholder="Expense"><input type="text" inputmode="decimal" class="money" id="${kind}a-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="amount" value="${mval(l.amount)}" placeholder="0.00" aria-label="Amount"><label class="feechk" title="Paid from the Rec Center fee, so it is not billed to players"><input type="checkbox" id="${kind}f-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="fee"${l.fee?' checked':''}>Fee</label><button class="danger" data-act="delline" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" aria-label="Remove expense">✕</button></div>`).join('')}<div><button data-act="addline" data-kind="${kind}" data-id="${esc(pid)}">Add an expense</button></div></div>`;}
+function linesHtml(kind,pid,lines,per){return `<div class="explines"><div class="row between"><span class="eyebrow">Expenses</span><span class="small muted">Check Fee if the Rec Center fee pays it, not dues</span></div>${(lines||[]).map(l=>`<div class="expline${l.fee?' isfee':''}"><input type="text" id="${kind}l-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="label" value="${esc(l.label)}" aria-label="Expense" placeholder="Expense"><input type="text" inputmode="decimal" class="money" id="${kind}a-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="amount" value="${mval(l.amount)}" placeholder="0.00" aria-label="Amount"><label class="feechk" title="Paid from the Rec Center fee, so it is not billed to players"><input type="checkbox" id="${kind}f-${esc(pid)}-${esc(l.id)}" data-c="line" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" data-k="fee"${l.fee?' checked':''}>Fee</label><button class="danger" data-act="delline" data-kind="${kind}" data-id="${esc(pid)}" data-l="${esc(l.id)}" aria-label="Remove expense">✕</button>${per?`<span class="per num">${per(l)}</span>`:''}</div>`).join('')}<div><button data-act="addline" data-kind="${kind}" data-id="${esc(pid)}">Add an expense</button></div></div>`;}
 function mutLines(kind,pid,fn){
   if(kind==='exp'){const t=local.trips.get(pid);if(!t)return;const lines=clone(Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:uid(),label:'Trip cost',amount:+t.cost}]:[]));fn(lines);put('trips',pid,{...t,expenses:lines});}
   else setCfg(c=>{const it=(c.fixed||[]).find(i=>i.id===pid);if(!it)return;if(!Array.isArray(it.lines))it.lines=+it.amount?[{id:uid(),label:it.name||'Cost',amount:+it.amount}]:[];fn(it.lines);});
@@ -514,7 +519,7 @@ function vTrips(C){
       <div class="field"><span>Billed to travelers</span><span class="share num">${fmt(info.cost||0)}</span>${feeLines(t.expenses)?`<span class="small muted">plus ${fmt(feeLines(t.expenses))} paid by the fee</span>`:''}</div>
       <div class="field"><span>Per traveler</span><span class="share num">${info.count?fmt(info.share):'—'}</span></div>
     </div>
-    ${linesHtml('exp',id,Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]))}
+    ${linesHtml('exp',id,Array.isArray(t.expenses)?t.expenses:(+t.cost?[{id:'legacy',label:'Trip cost',amount:+t.cost}]:[]),l=>{const a=Math.max(0,+l.amount||0);if(!a)return '';if(l.fee)return 'fee-paid · $0 / traveler';return info.count?`${fmt(a/info.count)} / traveler`:'no travelers yet';})}
     <div class="row between"><span class="eyebrow">${info.count} traveling</span><span class="row">
       <button data-act="alltravel" data-id="${esc(id)}">Check all travel squad</button><button data-act="clearall" data-id="${esc(id)}">Clear</button>${armBtn('trip:'+id,'Delete trip','deltrip',`data-id="${esc(id)}"`)}</span></div>
     ${ps.length?`<div class="checks">${ps.map(p=>`<label><input type="checkbox" id="tv-${esc(id)}-${esc(p.id)}" data-c="trav" data-id="${esc(id)}" data-p="${esc(p.id)}"${set.has(p.id)?' checked':''}><span>${esc(p.name)}</span>${p.squad==='practice'?'<span class="tag ps">P</span>':''}</label>`).join('')}</div>`:'<span class="muted small">Add players on the Roster tab to check off travelers.</span>'}
@@ -540,9 +545,10 @@ function vCosts(C){
     ${(c.fixed||[]).filter(it=>it.group!=='usccs').map(it=>`<div class="costblock"><div class="row">
       <label class="field grow"><span>Cost</span><input type="text" id="fn-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="name" value="${esc(it.name)}"></label>
       <label class="field"><span>Entered as</span><select id="fb-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="basis"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
-      <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span></div>
+      <div class="field"><span>Total</span><span class="share num">${fmt(fixedAmt(it))}</span>${feeLines(it.lines)?`<span class="small muted">plus ${fmt(feeLines(it.lines))} fee-paid</span>`:''}</div>
+      <div class="field"><span>Per player</span><span class="share num">${catPayers(it,C)?fmt(catPer(it,C)):'—'}</span></div>
       <button class="danger" data-act="delfixed" data-id="${esc(it.id)}">Remove category</button></div>
-      ${linesHtml('fl',it.id,Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]))}${payersHtml(it,C)}</div>`).join('')}
+      ${linesHtml('fl',it.id,Array.isArray(it.lines)?it.lines:(+it.amount?[{id:'legacy',label:it.name,amount:+it.amount}]:[]),linePer(it,C))}${payersHtml(it,C)}</div>`).join('')}
     <div class="row between"><button data-act="addfixed">Add a category</button>
     <span>Each travel squad player owes <strong class="num">${fmt(per?per.fixed:0)}</strong> before travel, including USCCS costs</span></div></div>
   ${feePanel()}
@@ -573,6 +579,9 @@ function feePanel(){
     ${left<-0.005?`<div class="banner">Fee-paid expenses are ${fmt(-left)} more than the fee balance. Uncheck Fee on some expenses so the rest are billed to dues, or check the starting balance.</div>`:''}
     ${u.items.length?`<div class="feelist">${u.items.map(x=>`<div><span>${esc(x.label)}</span><span class="num">${fmt(x.amount)}</span></div>`).join('')}</div>`:'<span class="small muted">No expenses are checked Fee yet. Check Fee next to any expense on this tab, the USCCS costs tab, or a trip.</span>'}</div>`;
 }
+function catPayers(it,C){const sk=new Set(it.skip||[]);return C.list.filter(r=>r.squad==='travel'&&!sk.has(r.id)).length;}
+function catPer(it,C){const n=catPayers(it,C),amt=fixedAmt(it);return it.basis==='each'?(n?amt:0):(n?amt/n:0);}
+function linePer(it,C){const n=catPayers(it,C);return l=>{const a=Math.max(0,+l.amount||0);if(!a)return '';if(l.fee)return 'fee-paid · $0 / player';if(!n)return 'no players charged';return `${fmt(it.basis==='each'?a:a/n)} / player`;};}
 function payersHtml(it,C){
   const tsq=C.list.filter(r=>r.squad==='travel');if(!tsq.length)return '';
   const skip=new Set(it.skip||[]),nPay=tsq.filter(r=>!skip.has(r.id)).length,open=(S.payOpen||{})[it.id],amt=fixedAmt(it);
@@ -607,8 +616,8 @@ function vUsccs(C){
     <div class="row">
       <label class="field"><span>Entered as</span><select id="fb-usccs" data-c="fixed" data-id="usccs" data-k="basis" style="width:auto"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
       <div class="field"><span>Total</span><span class="share num">${fmt(tot)}</span></div>
-      <div class="field"><span>Per travel squad player</span><span class="share num">${n?fmt(it.basis==='each'?tot:tot/n):'—'}</span></div></div>
-    ${linesHtml('fl','usccs',it.lines)}${payersHtml(it,C)}
+      <div class="field"><span>Per player</span><span class="share num">${catPayers(it,C)?fmt(catPer(it,C)):'—'}</span></div></div>
+    ${linesHtml('fl','usccs',it.lines,linePer(it,C))}${payersHtml(it,C)}
     <div class="banner">USCCS draws on the performance bond to pay referees and fines. Enter referee fees, assigning fees, and fines here only for amounts billed beyond the bond, so the same money is not counted twice. The Nationals application fee is refunded if the team does not qualify.</div></div>`;
 }
 function vPayments(C){
