@@ -302,7 +302,7 @@ const natTripId=trips=>{const e=[...trips].find(([,t])=>/florida|nationals|brade
 function lineBatch(it,l,trips){const tm=new Map([...trips]);if(l&&l.batch){if(l.batch==='eoy')return 'eoy';if(tm.has(l.batch))return 't:'+l.batch;}
   if(it&&it.id==='usccs'&&l&&l.id==='natapp'){const n=natTripId(trips);if(n)return 't:'+n;}return 'eoy';}
 function compute(players, trips, payments, cfg){
-  const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',qualified:!!p.fundQualified,ownFund:!!p.ownFund,ownAmt:Math.max(0,+p.ownAmt||0),skipped:[],items:[],fixed:0,travel:0,tripCount:0,tripShares:{},fixedB:{},credit:0,paid:0}));
+  const list=[...players].map(([id,p])=>({id,name:p.name||'',squad:p.squad==='practice'?'practice':'travel',qualified:!!p.fundQualified,ownFund:!!p.ownFund,ownAmt:Math.max(0,+p.ownAmt||0),skipped:[],items:[],fixed:0,travel:0,tripCount:0,tripShares:{},fixedB:{},paidB:{},credit:0,paid:0}));
   const rows=new Map(list.map(r=>[r.id,r]));
   const tsq=list.filter(r=>r.squad==='travel'), n=tsq.length, warnings=[];
   const fee=feeAlloc(trips,cfg.fixed,list,feeStartOf(cfg)),fOver=k=>(fee.map.get(k)||{}).over||0;
@@ -333,7 +333,7 @@ function compute(players, trips, payments, cfg){
   });
   list.forEach(r=>r.gross=r.fixed+r.travel);
   let orphanPaid=0;
-  [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r) r.paid+=a; else orphanPaid+=a;});
+  [...payments].forEach(([id,p])=>{const r=rows.get(p.playerId),a=+p.amount||0; if(r){r.paid+=a;const bk=p.batch&&p.batch!=='eoy'&&trips.has&&trips.has(p.batch)?'t:'+p.batch:'eoy';r.paidB[bk]=(r.paidB[bk]||0)+a;} else orphanPaid+=a;});
   const F=Math.max(0,+cfg.fundraising||0);
   const own=list.filter(r=>r.ownFund),ownTotal=own.reduce((t,r)=>t+r.ownAmt,0),P=Math.max(0,F-ownTotal);
   own.forEach(r=>{r.credit=Math.min(r.gross,r.ownAmt);r.ownUnused=r.ownAmt-r.credit;});
@@ -358,15 +358,16 @@ function compute(players, trips, payments, cfg){
   if(orphanPaid>0.005) warnings.push(`${fmt(orphanPaid)} in payments belongs to players no longer on the roster.`);
   list.sort((a,b)=>a.name.localeCompare(b.name));
   const bdefs=[...trips].map(([id,t])=>({key:'t:'+id,label:t.name||'Untitled trip',due:t.dueDate||t.date||'',trip:id}));
-  bdefs.push({key:'eoy',label:'End of year (non-trip costs)',due:cfg.eoyDue||'',eoy:true});
+  bdefs.push({key:'eoy',label:'Everything else',due:cfg.eoyDue||'',eoy:true});
   bdefs.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(a.eoy?1:0)-(b.eoy?1:0));
   const fbDef=(cfg.fundBatch&&bdefs.find(b=>b.key===cfg.fundBatch))||bdefs.find(b=>b.trip&&/florida|nationals|bradenton|img/i.test(b.label))||bdefs.find(b=>b.trip)||bdefs[0];
   const fi=bdefs.indexOf(fbDef),corder=[...bdefs.slice(fi),...bdefs.slice(0,fi)];
   list.forEach(r=>{r.batches=bdefs.map(b=>({key:b.key,charge:b.eoy?(r.fixedB.eoy||0):(r.tripShares[b.trip]||0)+(r.fixedB['t:'+b.trip]||0),credit:0,paid:0,owe:0}));const bm=new Map(r.batches.map(x=>[x.key,x]));
     let cr=r.credit;corder.forEach(b=>{const x=bm.get(b.key),t=Math.min(cr,x.charge);x.credit=t;cr-=t;});
-    let pd=r.paid;r.batches.forEach(x=>{const t=Math.min(pd,Math.max(0,x.charge-x.credit));x.paid=t;pd-=t;});
-    r.batches.forEach(x=>x.owe=x.charge-x.credit-x.paid);r.extraPaid=pd;});
-  const batches=bdefs.map((b,i)=>{const xs=list.map(r=>r.batches[i]);return {...b,charge:xs.reduce((t,x)=>t+x.charge,0),credit:xs.reduce((t,x)=>t+x.credit,0),paid:xs.reduce((t,x)=>t+x.paid,0),owe:xs.reduce((t,x)=>t+Math.max(0,x.owe),0),nOwe:xs.filter(x=>x.owe>0.005).length};});
+    let spill=0;r.batches.forEach(x=>{if(x.key==='eoy')return;const pb=r.paidB[x.key]||0,t=Math.min(pb,Math.max(0,x.charge-x.credit));x.paid=t;spill+=pb-t;});
+    const ex=bm.get('eoy');ex.paid=(r.paidB.eoy||0)+spill;ex.spill=spill;
+    r.batches.forEach(x=>x.owe=x.charge-x.credit-x.paid);r.extraPaid=Math.max(0,-ex.owe);});
+  const batches=bdefs.map((b,i)=>{const xs=list.map(r=>r.batches[i]);return {...b,charge:xs.reduce((t,x)=>t+x.charge,0),credit:xs.reduce((t,x)=>t+x.credit,0),paid:xs.reduce((t,x)=>t+x.paid,0),owe:xs.reduce((t,x)=>t+Math.max(0,x.owe),0),credit2:xs.reduce((t,x)=>t+Math.max(0,-x.owe),0),nOwe:xs.filter(x=>x.owe>0.005).length};});
   return {list,rows,tot,tripInfo,warnings,nTravel:n,nElig:ne,qMode,perCredit:ne?P/ne:0,unused,F,P,ownTotal,nOwn:own.length,nPrac,fee,batches,fundBatch:fbDef.key};
 }
 function fmt(n){n=Math.round((+n||0)*100)/100; if(Object.is(n,-0))n=0; const s=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0?'−$':'$')+s;}
@@ -534,17 +535,17 @@ function vBalances(C){
   <p class="small muted">Dues = gear, coach's pay, and USCCS costs (travel squad only) + a share of each trip taken − fundraising credit. The number beside Travel is trips taken.</p>`;
 }
 function batchCard(C){
-  const bs=C.batches||[];if(!bs.some(b=>b.charge>0.005))return '';
-  const shown=bs.filter(b=>b.charge>0.005),sel=(S.batch&&shown.find(b=>b.key===S.batch))||shown.find(b=>b.owe>0.005)||shown[0],i=bs.indexOf(sel);
+  const bs=C.batches||[];if(!bs.some(b=>b.charge>0.005||b.paid>0.005))return '';
+  const shown=bs.filter(b=>b.charge>0.005||b.paid>0.005),sel=(S.batch&&shown.find(b=>b.key===S.batch))||shown.find(b=>b.owe>0.005)||shown[0],i=bs.indexOf(sel);
   const fb=bs.find(b=>b.key===C.fundBatch);
-  const rows=C.list.map(r=>({r,x:r.batches[i]})).filter(o=>o.x.charge>0.005||o.x.owe>0.005);
-  const st=x=>x.owe>0.005?'<span class="pill owes">Owes</span>':'<span class="pill paid">Paid</span>';
+  const rows=C.list.map(r=>({r,x:r.batches[i]})).filter(o=>o.x.charge>0.005||Math.abs(o.x.owe)>0.005||o.x.paid>0.005);
+  const st=x=>x.owe>0.005?'<span class="pill owes">Owes</span>':x.owe<-0.005?'<span class="pill credit">Credit</span>':'<span class="pill paid">Paid</span>';
   return `<div class="card"><div class="row between"><h2>Dues by batch</h2><button data-act="batchcopy">Copy amounts for this batch</button></div>
-    <span class="small muted">Each trip is its own batch, and non-trip costs are billed at the end of the year unless an expense is set to bill with a trip (the Nationals application fee bills with Nationals). Fundraising comes off ${fb?`<strong>${esc(fb.label)}</strong>`:'the first batch'} first, then later batches. Payments count toward the earliest batch first.</span>
-    <div class="filters">${shown.map(b=>`<button data-act="batch" data-k="${esc(b.key)}" aria-pressed="${b===sel}">${esc(b.label)}${b.due?` · due ${usDate(b.due)}`:''} · ${fmt(b.owe)} owed</button>`).join('')}</div>
+    <span class="small muted">Each trip is its own batch: that trip's costs (plus any expense set to bill with it, like the Nationals application fee) minus fundraising. Fundraising comes off ${fb?`<strong>${esc(fb.label)}</strong>`:'the first batch'} first. <strong>Everything else</strong> holds the non-trip costs and every payment not recorded for a specific trip, including all payments already logged.</span>
+    <div class="filters">${shown.map(b=>`<button data-act="batch" data-k="${esc(b.key)}" aria-pressed="${b===sel}">${esc(b.label)}${b.due?` · due ${usDate(b.due)}`:''} · ${fmt(b.owe)} owed${b.credit2>0.005?` · ${fmt(b.credit2)} credit`:''}</button>`).join('')}</div>
     <div class="scroll"><table><thead><tr><th>Player</th><th class="l">Squad</th><th>Charge</th><th>Fundraising</th><th>Paid toward it</th><th>Due now</th><th class="l">Status</th></tr></thead><tbody>
-    ${rows.map(({r,x})=>`<tr><td>${esc(r.name)}</td><td class="l">${squadTag(r.squad)}</td><td class="num">${fmt(x.charge)}</td><td class="num">${x.credit?fmt(-x.credit):fmt(0)}</td><td class="num">${fmt(x.paid)}</td><td class="num bal">${fmt(Math.max(0,x.owe))}</td><td class="l">${st(x)}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No one is billed for this batch yet.</td></tr>'}</tbody>
-    <tfoot><tr><td>Total</td><td></td><td class="num">${fmt(sel.charge)}</td><td class="num">${fmt(-sel.credit)}</td><td class="num">${fmt(sel.paid)}</td><td class="num">${fmt(sel.owe)}</td><td></td></tr></tfoot></table></div></div>`;
+    ${rows.map(({r,x})=>`<tr><td>${esc(r.name)}</td><td class="l">${squadTag(r.squad)}</td><td class="num">${fmt(x.charge)}</td><td class="num">${x.credit?fmt(-x.credit):fmt(0)}</td><td class="num">${fmt(x.paid)}</td><td class="num bal">${x.owe<-0.005?fmt(x.owe):fmt(Math.max(0,x.owe))}</td><td class="l">${st(x)}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No one is billed for this batch yet.</td></tr>'}</tbody>
+    <tfoot><tr><td>Total</td><td></td><td class="num">${fmt(sel.charge)}</td><td class="num">${fmt(-sel.credit)}</td><td class="num">${fmt(sel.paid)}</td><td class="num">${fmt(sel.owe)}${sel.credit2>0.005?` <span class="small muted">(${fmt(sel.credit2)} credit)</span>`:''}</td><td></td></tr></tfoot></table></div></div>`;
 }
 function detail(r){
   const pays=[...local.payments].filter(([id,p])=>p.playerId===r.id).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
@@ -559,6 +560,7 @@ function detail(r){
   <div><span class="eyebrow">Record a payment</span><div class="row">
     <label class="field"><span>Amount</span><input type="text" inputmode="decimal" class="money" id="qa-${esc(r.id)}" data-draft placeholder="${r.balance>0?mval(Math.round(r.balance*100)/100):'0.00'}"></label>
     <label class="field"><span>Date</span><input type="date" id="qd-${esc(r.id)}" data-draft value="${today()}"></label>
+    <label class="field"><span>For</span><select id="qb-${esc(r.id)}" data-draft style="width:auto">${batchOpts()}</select></label>
     <label class="field grow"><span>Note</span><input type="text" id="qn-${esc(r.id)}" data-draft placeholder="Venmo, cash, check #"></label>
     <button class="primary" data-act="quickpay" data-id="${esc(r.id)}">Record</button></div>
     ${r.balance>0.005?`<div><button class="link" data-act="payfull" data-id="${esc(r.id)}">Fill in the full balance of ${fmt(r.balance)}</button></div>`:''}</div>
@@ -604,7 +606,7 @@ function vCosts(C){
   const c=cfg();const per=C.list.find(r=>r.squad==='travel');
   return `${warns(C)}<div class="card"><h2>Travel squad costs</h2>
     <span class="small muted">Charged to travel squad players whether or not they travel. Add practice players with "Choose who pays" or "who pays" on a single expense.</span>
-    <div class="row"><label class="field"><span>End-of-year dues due by</span><input type="date" id="eoy-due" data-c="eoydue" value="${esc(c.eoyDue||'')}"></label><span class="small muted" style="align-self:center">These costs are billed as the end-of-year batch on the Balances tab.</span></div>
+    <div class="row"><label class="field"><span>Everything-else dues due by</span><input type="date" id="eoy-due" data-c="eoydue" value="${esc(c.eoyDue||'')}"></label><span class="small muted" style="align-self:center">These costs are billed in the Everything else batch on the Balances tab, along with payments not recorded for a trip.</span></div>
     ${(c.fixed||[]).filter(it=>it.group!=='usccs').map(it=>`<div class="costblock"><div class="row">
       <label class="field grow"><span>Cost</span><input type="text" id="fn-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="name" value="${esc(it.name)}"></label>
       <label class="field"><span>Entered as</span><select id="fb-${esc(it.id)}" data-c="fixed" data-id="${esc(it.id)}" data-k="basis"><option value="split"${it.basis!=='each'?' selected':''}>Team totals, split evenly</option><option value="each"${it.basis==='each'?' selected':''}>Amounts per player</option></select></label>
@@ -709,11 +711,12 @@ function vPayments(C){
     <label class="field grow"><span>Player</span><select id="pp-player" data-draft>${playerOpts()}</select></label>
     <label class="field"><span>Amount</span><input type="text" inputmode="decimal" class="money" id="pp-amt" data-draft placeholder="0.00"></label>
     <label class="field"><span>Date</span><input type="date" id="pp-date" data-draft value="${today()}"></label>
+    <label class="field"><span>For</span><select id="pp-batch" data-draft style="width:auto">${batchOpts()}</select></label>
     <label class="field grow"><span>Note</span><input type="text" id="pp-note" data-draft placeholder="Venmo, cash, check #"></label>
     <button class="primary" data-act="addpay">Record</button></div>`:'<span class="muted">Add players on the Roster tab first.</span>'}</div>
-  ${pays.length?`<div class="scroll"><table><thead><tr><th>Date</th><th class="l">Player</th><th>Amount</th><th class="l">Note</th><th></th></tr></thead><tbody>
-  ${pays.map(([id,p])=>{const pl=local.players.get(p.playerId);return `<tr><td class="num">${esc(p.date||'')}</td><td class="l">${pl?esc(pl.name):'<span class="muted">Removed player</span>'}</td><td class="num">${fmt(p.amount)}</td><td class="l" style="white-space:normal">${esc(p.note||'')}</td><td>${armBtn('pay:'+id,'Delete','delpay',`data-id="${esc(id)}"`)}</td></tr>`;}).join('')}
-  </tbody><tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.paid)}</td><td></td><td></td></tr></tfoot></table></div>`:'<div class="empty"><span class="muted">No payments logged yet. Each one you record lowers that player\'s balance.</span></div>'}`;
+  ${pays.length?`<div class="scroll"><table><thead><tr><th>Date</th><th class="l">Player</th><th>Amount</th><th class="l">For</th><th class="l">Note</th><th></th></tr></thead><tbody>
+  ${pays.map(([id,p])=>{const pl=local.players.get(p.playerId);return `<tr><td class="num">${esc(p.date||'')}</td><td class="l">${pl?esc(pl.name):'<span class="muted">Removed player</span>'}</td><td class="num">${fmt(p.amount)}</td><td class="l"><select id="pb-${esc(id)}" data-c="paybatch" data-id="${esc(id)}" style="width:auto" aria-label="Payment is for">${batchOpts(p.batch&&local.trips.has(p.batch)?p.batch:'eoy')}</select></td><td class="l" style="white-space:normal">${esc(p.note||'')}</td><td>${armBtn('pay:'+id,'Delete','delpay',`data-id="${esc(id)}"`)}</td></tr>`;}).join('')}
+  </tbody><tfoot><tr><td>Total</td><td></td><td class="num">${fmt(C.tot.paid)}</td><td></td><td></td><td></td></tr></tfoot></table></div>`:'<div class="empty"><span class="muted">No payments logged yet. Each one you record lowers that player\'s balance.</span></div>'}`;
 }
 
 
@@ -1111,9 +1114,10 @@ function vGuide(C){
     '<strong>Trip cost</strong> = that trip\'s expenses divided by the players checked as traveling.',
     '<strong>Exceptions</strong> are set per cost or per expense:'+(ex.length?li(ex):' none right now.')])}</div>
   <div class="card guide"><h3>When dues are due</h3>${li([
-    'Dues are paid in batches. Each trip is its own batch, and the non-trip costs (gear, coach\'s pay, USCCS) are billed at the end of the year. The USCCS Nationals application fee is billed with the Nationals trip.',
-    ...(C.batches||[]).filter(b=>b.charge>0.005).map(b=>`<strong>${esc(b.label)}</strong>${b.due?`, due ${npFmt(b.due)}`:''}: ${fmt(b.charge)} billed${b.credit?`, ${fmt(b.credit)} covered by fundraising`:''}, ${fmt(b.owe)} still owed.`),
-    `Fundraising comes off ${(C.batches||[]).find(b=>b.key===C.fundBatch)?`<strong>${esc(C.batches.find(b=>b.key===C.fundBatch).label)}</strong>`:'the first batch'} first, then later batches. Payments count toward the earliest batch first.`,
+    'Dues are paid in batches. Each trip is its own batch: that trip\'s costs minus fundraising. The USCCS Nationals application fee is billed with the Nationals trip.',
+    '<strong>Everything else</strong> holds the non-trip costs (gear, coach\'s pay, the rest of USCCS) and every payment that isn\'t recorded for a specific trip, including the payments already made.',
+    ...(C.batches||[]).filter(b=>b.charge>0.005||b.paid>0.005).map(b=>`<strong>${esc(b.label)}</strong>${b.due?`, due ${npFmt(b.due)}`:''}: ${fmt(b.charge)} billed${b.credit?`, ${fmt(b.credit)} covered by fundraising`:''}${b.paid?`, ${fmt(b.paid)} paid`:''}, ${fmt(b.owe)} still owed${b.credit2>0.005?`, ${fmt(b.credit2)} in credit`:''}.`),
+    `Fundraising comes off ${(C.batches||[]).find(b=>b.key===C.fundBatch)?`<strong>${esc(C.batches.find(b=>b.key===C.fundBatch).label)}</strong>`:'the first batch'} first. When you pay trip dues, the payment is recorded for that trip.`,
     `If you're not paying for part of a trip, for example you booked your own flights, you're left off that expense and the others on the trip split it.`])}</div>
   <div class="card guide"><h3>Rec Center fee</h3>${li([
     `Some expenses are paid from UO's ${fmt(fee.start)} Rec Center fee instead of dues. The fee covers them oldest first, and anything past ${fmt(fee.start)} is billed to dues.`,
@@ -1132,10 +1136,11 @@ function vGuide(C){
 
 /* ---------- actions ---------- */
 function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
-function addPayment(pid,amt,date,note){
+function batchOpts(sel){const trs=[...local.trips].sort((a,b)=>(a[1].date||'9').localeCompare(b[1].date||'9'));return `<option value="eoy"${!sel||sel==='eoy'?' selected':''}>Everything else</option>${trs.map(([tid,t])=>`<option value="${esc(tid)}"${sel===tid?' selected':''}>${esc(t.name||'Untitled trip')} dues</option>`).join('')}`;}
+function addPayment(pid,amt,date,note,batch){
   if(!local.players.has(pid)) return toast('Pick a player first.');
   if(!amt) return toast('Enter a payment amount greater than zero.');
-  put('payments',uid(),{playerId:pid,amount:amt,date:date||today(),note:(note||'').slice(0,200),at:Date.now()},0);toast('Payment recorded');return true;
+  put('payments',uid(),{playerId:pid,amount:amt,date:date||today(),note:(note||'').slice(0,200),batch:batch&&local.trips.has(batch)?batch:'eoy',at:Date.now()},0);toast('Payment recorded');return true;
 }
 const clearEls=(...ids)=>ids.forEach(i=>{const e=$(i);if(e)e.value='';});
 const ACT={
@@ -1206,8 +1211,8 @@ const ACT={
     const fb=()=>{const ta=document.createElement('textarea');ta.value=txt;ta.setAttribute('aria-label','Ledger');$('view').prepend(ta);ta.select();toast('Copying is blocked here. The ledger is selected at the top for you to copy.');};
     try{navigator.clipboard.writeText(txt).then(()=>toast('Ledger copied. Paste it into a spreadsheet.'),fb);}catch(e){fb();}
   },
-  addpay(){if(addPayment($('pp-player').value,money($('pp-amt').value),$('pp-date').value,$('pp-note').value))clearEls('pp-amt','pp-note');},
-  quickpay(d){if(addPayment(d.id,money($('qa-'+d.id).value),$('qd-'+d.id).value,$('qn-'+d.id).value))clearEls('qa-'+d.id,'qn-'+d.id);},
+  addpay(){if(addPayment($('pp-player').value,money($('pp-amt').value),$('pp-date').value,$('pp-note').value,$('pp-batch').value))clearEls('pp-amt','pp-note');},
+  quickpay(d){if(addPayment(d.id,money($('qa-'+d.id).value),$('qd-'+d.id).value,$('qn-'+d.id).value,$('qb-'+d.id).value))clearEls('qa-'+d.id,'qn-'+d.id);},
   payfull(d){const C=compute(local.players,local.trips,local.payments,cfg()),r=C.rows.get(d.id),el=$('qa-'+d.id);if(r&&el){el.value=(Math.round(r.balance*100)/100).toFixed(2);el.focus();}},
   delpay(d){S.armed=null;del('payments',d.id);},
   copy(){
@@ -1239,6 +1244,7 @@ document.addEventListener('change',e=>{
     put('config',d.id,n);}
   else if(d.c==='feestart'){setCfg(c=>{c.feeStart=money(el.value);});}
   else if(d.c==='tskip'){mutLines('exp',d.id,ls=>{const l=ls.find(x=>x.id===d.l);if(!l)return;const s=new Set((l.pay&&l.pay.skip)||[]);el.checked?s.delete(d.p):s.add(d.p);if(s.size)l.pay={skip:[...s]};else delete l.pay;});}
+  else if(d.c==='paybatch'){const p=local.payments.get(d.id);if(p)put('payments',d.id,{...p,batch:el.value},0);}
   else if(d.c==='lbatch'){setCfg(c=>{const it=(c.fixed||[]).find(i=>i.id===d.id);const l=it&&Array.isArray(it.lines)&&it.lines.find(x=>x.id===d.l);if(l)l.batch=el.value;});}
   else if(d.c==='eoydue'){setCfg(c=>{c.eoyDue=el.value;});}
   else if(d.c==='fbatch'){setCfg(c=>{c.fundBatch=el.value;});}
