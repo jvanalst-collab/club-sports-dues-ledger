@@ -240,6 +240,12 @@ select.st.none{border-left-color:var(--s-none)}select.st.prog{border-left-color:
   .np-tbl td.task::before{display:none}
 }
 @media (prefers-reduced-motion:no-preference){.g-bar{transition:width .2s,left .2s,background-color .2s}}
+.guide h3{font-size:19px;text-transform:uppercase}
+.guide p{margin:0}
+.guide-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.guide-list .guide-list{margin-top:6px}
+.guide .late{color:var(--bad);font-weight:600}
+.guide button.link{padding:0;font-size:inherit}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 </style>
@@ -265,6 +271,7 @@ select.st.none{border-left-color:var(--s-none)}select.st.prog{border-left-color:
     <button role="tab" data-act="tab" data-tab="payments">Payments</button>
     <button role="tab" data-act="tab" data-tab="ledger">Ledger</button>
     <button role="tab" data-act="tab" data-tab="nationals">Nationals prep</button>
+    <button role="tab" data-act="tab" data-tab="guide">How it works</button>
   </nav>
   <div id="view" class="panel"></div>
 </div>
@@ -463,7 +470,7 @@ function paint(){
     return;}
   const C=compute(local.players,local.trips,local.payments,cfg());
   $('tiles').innerHTML=tiles(C);
-  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger,nationals:vNationals}[S.tab]||vBalances)(C);
+  view.innerHTML=({balances:vBalances,trips:vTrips,roster:vRoster,costs:vCosts,usccs:vUsccs,payments:vPayments,ledger:vLedger,nationals:vNationals,guide:vGuide}[S.tab]||vBalances)(C);
   for(const id in drafts){const el=$(id);if(el&&drafts[id]!=='')el.value=drafts[id];}
   if(keep){const el=$(keep.id);if(el){if(keep.text)el.value=keep.v;el.focus({preventScroll:true});try{if(keep.text)el.setSelectionRange(keep.s,keep.e);}catch(e){}}}
   if(S.lflash){const tr=view.querySelector(`tr[data-row="${CSS.escape(S.lflash)}"]`);S.lflash=null;if(tr){tr.classList.add('flash');try{tr.scrollIntoView({block:'nearest'});}catch(e){}}}
@@ -867,15 +874,16 @@ const NPPH = [
  {id:"forms", name:"Player forms, enrollment & kits", due:"USCCS deadline Fri Nov 6"},
  {id:"sched", name:"Schedule & practice", due:"Nov 2 · Nov 4"},
  {id:"travel", name:"Travel & lodging", due:"set your own dates"},
- {id:"onsite", name:"On-site & game day", due:"Nov 10/11 check-in · Nov 11–15"},
+ {id:"onsite", name:"On-site & game day", due:"Nov 10–12 check-in · Nov 11–15"},
 ];
 
 // Default task set. Owner/status/notes/deadline edits live in the shared store; these are the baseline.
 const NPDEF = [
- {id:"team-reg", phase:"reg", title:"Team registration & $1,300 payment", desc:"Was due Oct 23; refunded in full if the team does not qualify.", link:{t:"Team Registration (SportsEngine)",u:"https://collegeclubsoccer.sportngin.com/register/form/751787149"}, start:"2026-10-26", deadline:"2026-10-23"},
- {id:"roster-online", phase:"reg", title:"Add all 25 players to the online roster", desc:"Only players registered before the deadline can be selected for the Nationals roster. The guide says additions after Oct 29 are at the commissioners' discretion, so treat Oct 29 as the real cutoff.", start:"2026-10-26", deadline:"2026-10-29"},
+ {id:"team-reg", phase:"reg", title:"Team registration & $1,300 payment", desc:"The Oct 27 invitation says this is due on acceptance, and the spot is confirmed only once registration and payment are done. The earlier email listed Oct 23. Refunded in full if the team does not qualify.", link:{t:"Team Registration (SportsEngine)",u:"https://collegeclubsoccer.sportngin.com/register/form/751787149"}, start:"2026-10-26", deadline:"2026-10-23"},
+ {id:"roster-online", phase:"reg", title:"Add every possible player to the online roster", desc:"Anyone not on the online roster by Fri Oct 30 cannot be picked for the Nationals roster, so add everyone who might travel, including practice players such as Allan or Kian. The invitation says Oct 30; the Tournament Guide says additions after Oct 29 are at the commissioners' discretion, so Oct 29 is the safe date.", start:"2026-10-26", deadline:"2026-10-29"},
+ {id:"final-25", phase:"reg", title:"Pick the final 25-player Nationals roster", desc:"Nationals rosters are capped at 25 players, chosen from the online roster. The 25 sign the Certification Form (Nov 3) and are listed with jersey numbers on the Enrollment Form (Nov 6). Late additions are at the commissioners' discretion.", start:"2026-10-26", deadline:"2026-11-02"},
  {id:"eligibility", phase:"reg", title:"Eligibility check on all 25", desc:"Each player: 18+, enrolled at least half-time, approved by UO Club Sports, not on an NCAA/NAIA roster this academic year, no pro experience. Max 5 Designated Players (2+ years on an NCAA varsity roster).", start:"2026-10-26", deadline:"2026-10-30"},
- {id:"division", phase:"reg", title:"Confirm division: Gold or Silver", desc:"Depends on final league standing. Sets the check-in day (Gold Tue / Silver Wed), first-game day (Gold Wed AM / Silver Thu AM, as early as 8 AM), and the circle on the Player Certification Form.", start:"2026-10-26", deadline:"2026-11-06"},
+ {id:"division", phase:"reg", title:"Confirm division: Gold, Silver, or Bronze", desc:"Depends on final league standing. Each division checks in the day before its first game: Gold Tue / Silver Wed / Bronze Thu, with group play from 8 AM the next morning. Also sets the circle on the Player Certification Form.", start:"2026-10-26", deadline:"2026-11-06"},
 
  {id:"indiv-reg", phase:"forms", title:"Every player & coach re-registers and signs waivers (incl. IMG waiver)", desc:"Individual, not team-level. The IMG Academy waiver is inside the SportsEngine flow. Chase stragglers early.", link:{t:"Player & Coach Registration (SportsEngine)",u:"https://collegeclubsoccer.sportngin.com/register/form/847753059"}, start:"2026-10-26", deadline:"2026-11-06"},
  {id:"cert-sign", phase:"forms", title:"Player Certification Form: collect player & staff signatures and Student IDs", desc:"Names, UG, and team info are pre-filled. Each of the 25 players signs and writes their UO ID #; the guide also asks for staff signatures.", start:"2026-10-26", deadline:"2026-11-03"},
@@ -883,10 +891,10 @@ const NPDEF = [
  {id:"cert-registrar", phase:"forms", title:"Player Certification Form: Registrar seal & credit totals", desc:"Registrar completes UG/credits column, full-time credit hours, count of verified students, signature, date, and seal of authentication.", start:"2026-10-29", deadline:"2026-11-05"},
  {id:"jersey-nums", phase:"forms", title:"Finalize jersey number list (no taped numbers)", desc:"Unique 00–99 per player on both the light and dark set. Players without a unique number are ineligible for that game.", start:"2026-10-26", deadline:"2026-11-04"},
  {id:"kit-photos", phase:"forms", title:"Submit kit photos (home/away jerseys, socks, keeper kits)", desc:"Clear photos of both full sets, socks, and GK jerseys.", link:{t:"USCCS Men Nationals Team Kit Submission (Google Form)",u:"https://forms.gle/CiWnnJ4DmBqiCRSD9"}, start:"2026-10-28", deadline:"2026-11-05"},
- {id:"enroll-submit", phase:"forms", title:"Submit the completed Certification Form and jersey numbers", desc:"Upload the fully completed Player Certification Form (University Info, signatures, Student IDs, credit totals, Registrar seal) and the jersey number list.", link:{t:"Player Enrollment Form & Jersey Numbers (Google Form)",u:"https://forms.gle/kv31Hr2mp9aYrctC8"}, start:"2026-11-02", deadline:"2026-11-06"},
+ {id:"enroll-submit", phase:"forms", title:"Submit the completed Certification Form and jersey numbers", desc:"Upload the fully completed Player Certification Form (University Info, Team Rep Info, player and staff signatures, Student ID numbers, Campus Rec signature, credit totals, Registrar signatures and seal) and the jersey number list.", link:{t:"Player Enrollment Form & Jersey Numbers (Google Form)",u:"https://forms.gle/kv31Hr2mp9aYrctC8"}, start:"2026-11-02", deadline:"2026-11-06"},
 
  {id:"practice", phase:"sched", title:"Book practice slot (Tue/Wed at IMG, grass)", desc:"Sign-ups open Mon Nov 2, first-come first-served; link emailed to captains that day.", start:"2026-11-02", deadline:"2026-11-02"},
- {id:"schedule", phase:"sched", title:"Review full schedule and share with the team", desc:"Released by Wed Nov 4. Build the game-day timeline (field marshal check-in 30 min before kickoff). Finals: Gold Sat Nov 14 7 PM; Silver Sun Nov 15 1:30 PM.", start:"2026-11-04", deadline:"2026-11-05"},
+ {id:"schedule", phase:"sched", title:"Review full schedule and share with the team", desc:"Released by Wed Nov 4. Build the game-day timeline (field marshal check-in 30 min before kickoff). Men's finals: Gold Sat Nov 14 7 PM; Silver Sun Nov 15 1:30 PM; Bronze 1 PM (confirm the day on the schedule). Game times are subject to change.", start:"2026-11-04", deadline:"2026-11-05"},
  {id:"exams", phase:"sched", title:"Collect exam conflicts and request proctoring", desc:"USCCS runs a proctored exam desk on site with professor approval. Gather who has midterms Nov 10–15, get professor sign-off, and send requests to Nicole Jackson (nicole@collegeclubsoccer.com).", start:"2026-10-26", deadline:"2026-11-04"},
  {id:"guide", phase:"sched", title:"Share the Tournament Guide and sportsmanship statement with players", desc:"Advancement rules, tiebreakers, discipline, misconduct protocol. Suspended players must leave the facility for that match.", start:"2026-10-26", deadline:"2026-11-02"},
 
@@ -896,10 +904,10 @@ const NPDEF = [
  {id:"vans", phase:"travel", title:"Rental cars booked", desc:"Vans or rental cars for getting around Bradenton.", cost:"cars", start:"2026-10-26", deadline:""},
  {id:"fund", phase:"travel", title:"Fundraising pages live", desc:"Givebutter peer-to-peer pages, one per player.", cost:"fund", start:"2026-10-26", deadline:""},
  {id:"dues", phase:"travel", title:"Dues collected", desc:"Every player settled before departure.", cost:"dues", start:"2026-10-26", deadline:""},
- {id:"spectators", phase:"travel", title:"Send families the spectator info", desc:"Tournament pass $50/person, day pass $25/person; same gated entry as players. BallerTV stream for those at home.", start:"2026-11-04", deadline:""},
+ {id:"spectators", phase:"travel", title:"Send families the spectator info", desc:"Tournament Pass $50/person, Day Pass $25/person; same gated entry as players. Spectator hotels through the USCCS EventConnect link. Games stream on BallerTV; tag @collegeclubsoccer and #collegeclubsoccer.", start:"2026-11-04", deadline:""},
 
- {id:"checkin", phase:"onsite", title:"On-site check-in at IMG fields (3–7 PM on division day)", desc:"Gold: Tue Nov 10. Silver: Wed Nov 11. Team must also check in 90 min before its first match. Collect Captain's Package (2 armbands, 15 pink pinnies, 10 cones) and coach wristbands. Late = $150 unless Luciano is emailed before 7 PM.", start:"2026-11-10", deadline:"2026-11-11"},
- {id:"ids", phase:"onsite", title:"Every player has a physical or digital Student ID", desc:"Official school app or Apple/Google Wallet only. A photo of an ID will not be accepted. Players also show their jersey at the gate.", start:"2026-11-02", deadline:"2026-11-10"},
+ {id:"checkin", phase:"onsite", title:"On-site check-in at IMG fields (3–7 PM on division day)", desc:"Gold: Tue Nov 10. Silver: Wed Nov 11. Bronze: Thu Nov 12. Team must also check in 90 min before its first match. Collect Captain's Package (2 armbands, 15 pink pinnies, 10 cones) and coach wristbands. Late = $150 unless Luciano is emailed before 7 PM.", start:"2026-11-10", deadline:"2026-11-11"},
+ {id:"ids", phase:"onsite", title:"Every player has a physical or digital Student ID or government ID", desc:"Shown to the field marshal at every match, 30 minutes before kickoff. A picture of an ID is not accepted; digital IDs must be in the official school app or Apple/Google Wallet. A team not present 15 minutes before kickoff may forfeit.", start:"2026-11-02", deadline:"2026-11-10"},
  {id:"kits-pack", phase:"onsite", title:"Pack both full uniform sets + keeper kits", desc:"White/light and dark/bright, socks, GK kits. Numbers must match the submitted list. Sock tape must match the sock color. Visiting team changes on a color clash.", start:"2026-11-06", deadline:"2026-11-10"},
  {id:"staff", phase:"onsite", title:"Confirm technical-area staff list (max 5, wristbands)", desc:"Head coach, assistants, trainers, ops staff all count toward 5.", start:"2026-11-02", deadline:"2026-11-10"},
 ];
@@ -910,6 +918,7 @@ const NPST={none:'Not started',prog:'In progress',stuck:'Stuck',done:'Done'};
 const NPEXTRA={
  'jersey-nums':{linkFrom:'enroll-submit'},
  'roster-online':{linkHint:'Paste the link to the team’s online roster.'},
+ 'guide':{linkHint:'Paste the 2026 National Championship Tournament Guide link from the invitation email.'},
  'practice':{linkHint:'The sign-up link is emailed to captains Mon Nov 2. Paste it here when it arrives.'},
  'cert-sign':{link:{t:'Player Certification Form (PDF)',u:'https://cdn3.sportngin.com/attachments/document/190f-3636500/Player_Certification_Form.docx.pdf'}},
  'cert-rec':{link:{t:'Player Certification Form (PDF)',u:'https://cdn3.sportngin.com/attachments/document/190f-3636500/Player_Certification_Form.docx.pdf'}},
@@ -1002,13 +1011,14 @@ function vNationals(){
     <ul>
       <li>Venue: IMG Academy, 5650 Bollettieri Blvd, Bradenton, FL 34210. Grass fields, 115 × 75 yd, sun covers on both benches, lights only on the Stadium field. Nearest airport SRQ (~15 min); TPA and PIE ~45–60 min.</li>
       <li>On-site check-in: Gold Tue 3–7 PM · Silver Wed 3–7 PM · Bronze Thu 3–7 PM, at the fields. Outside those hours, email Luciano Parrotta (luciano@collegeclubsoccer.com) before 7 PM on your division's day or the team is fined $150. Teams also check in 90 min before their first match. A no-show means a two-year Nationals ban and league probation.</li>
-      <li>Game windows: Gold first game as early as Wed 8 AM, Silver as early as Thu 8 AM. Men's finals: Gold Sat Nov 14 at 7 PM; Silver Sun Nov 15 at 1:30 PM. Awards follow each final.</li>
+      <li>Game windows: Gold first game as early as Wed 8 AM, Silver as early as Thu 8 AM. Bronze first game as early as Fri 8 AM. Men's finals: Gold Sat Nov 14 at 7 PM; Silver Sun Nov 15 at 1:30 PM; Bronze at 1 PM. Awards follow each final. Game times are subject to change.</li>
       <li>Game day: field marshal check-in 30 min before kickoff; not present 15 min before kickoff may forfeit. Every player shows a physical or digital Student/government ID (official app or Apple/Google Wallet only; a photo of an ID is not accepted). Up to 5 coaches/staff in the technical area, each with a wristband. Bench players wear the pink pinnies. Unlimited subs at any stoppage. Game ball: Capelli Plasma Pro.</li>
-      <li>Format: groups of 4, 3 group games, two 40-min halves with 7-min halftime, ties stand. Men's Gold and Silver: only group winners advance; no consolation games. Knockouts: one full 10-min OT (no golden goal), then PKs (5 each, then sudden death; only players on the field at the end of OT kick). Points 3/1/0. Tiebreakers in order: goal difference (capped +5 per match), head-to-head, goals for, goals against, fewest disciplinary points, coin toss.</li>
+      <li>Format: groups of 4, 3 group games, two 40-min halves with 7-min halftime, ties stand. Men's Gold and Silver: only group winners advance; Men's Bronze: the top 4 group winners advance; no consolation games. Knockouts: one full 10-min OT (no golden goal), then PKs (5 each, then sudden death; only players on the field at the end of OT kick). Points 3/1/0. Tiebreakers in order: goal difference (capped +5 per match), head-to-head, goals for, goals against, fewest disciplinary points, coin toss.</li>
       <li>Uniforms: two full sets (one white/light, one dark/bright). Numbers 00–99, unique per player, no taped-on numbers; sock tape matches sock color; visiting team changes on a clash.</li>
       <li>Eligibility: same institution, 18+, at least half-time enrolled, club-sport approved, no concurrent NCAA/NAIA, no pro experience; max 5 Designated Players. 25-player roster cap. Season discipline carries over; the PAD committee reviews all red cards; suspended players leave the facility for that match.</li>
       <li>On site: Gatorade and water on every field; athletic trainers between fields and an ATC tent near the main entrance for taping; proctored exam desk (request through Nicole with professor approval); merch tent. Spectators: $50 tournament pass or $25 day pass.</li>
       <li>Campus: gated entry, no alcohol, no pets (service animals OK), no drones, no team live-streaming. Automated lightning detection; evacuate to vehicles or buildings when notified.</li>
+      <li>Declining: if the team cannot attend after all, tell USCCS right away. A team that accepts and does not show is barred from Nationals for two years and placed on league probation.</li>
       <li>Questions: Nicole Jackson, Operations Manager/Tournament Director · 541.497.1649 · Nicole@collegeclubsoccer.com</li>
     </ul>
   </div>`}`;
@@ -1019,6 +1029,50 @@ function npCommitDate(el){clearTimeout(npT[el.id]);const v=el.value;if(v&&!/^20\
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset&&el.dataset.npd){clearTimeout(npT[el.id]);npT[el.id]=setTimeout(()=>npCommitDate(el),1200);}});
 document.addEventListener('focusout',e=>{const el=e.target;if(el.dataset&&el.dataset.npd)npCommitDate(el);});
 document.addEventListener('keydown',e=>{const el=e.target;if(e.key!=='Enter')return;if(el.dataset&&el.dataset.npd){e.preventDefault();npCommitDate(el);}else if(el.id&&el.id.startsWith('npadd-')){e.preventDefault();ACT.npadd({ph:el.id.slice(6)});}});
+
+
+/* ---------- how it works ---------- */
+function vGuide(C){
+  const c=cfg(),byId=new Map(C.list.map(r=>[r.id,r])),nm=id=>(byId.get(id)||{}).name;
+  const ex=[];
+  (c.fixed||[]).forEach(it=>{const nmc=it.name||'Squad cost';
+    const off=(it.skip||[]).map(nm).filter(Boolean),add=(it.incl||[]).map(nm).filter(Boolean);
+    if(off.length)ex.push(`<strong>${esc(nmc)}</strong>: not charged to ${esc(off.join(', '))}.`);
+    if(add.length)ex.push(`<strong>${esc(nmc)}</strong>: also charged to practice player${add.length>1?'s':''} ${esc(add.join(', '))}.`);
+    (Array.isArray(it.lines)?it.lines:[]).filter(l=>l.pay).forEach(l=>{
+      const o=(l.pay.skip||[]).map(nm).filter(Boolean),a=(l.pay.incl||[]).map(nm).filter(Boolean),lb=`${esc(nmc)}, ${esc(l.label||'expense')}`;
+      const bits=[];if(a.length)bits.push(`also charged to ${esc(a.join(', '))}`);if(o.length)bits.push(`not charged to ${esc(o.join(', '))}`);
+      ex.push(`<strong>${lb}</strong>: ${bits.length?bits.join('; '):'charged to its own list of players'}.`);});});
+  const own=C.list.filter(r=>r.ownFund).map(r=>r.name),prac=C.list.filter(r=>r.squad==='practice'&&r.qualified&&!r.ownFund).map(r=>r.name);
+  const fee=C.fee,T=today();
+  const next=npTasks().filter(t=>t.status!=='done'&&t.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,4);
+  let link='';try{if(/^https?:$/.test(location.protocol)&&!/claude\.ai|claudeusercontent/.test(location.hostname))link=location.origin+location.pathname;}catch(e){}
+  const li=a=>`<ul class="guide-list">${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  return `<div class="card guide"><h2>How it works</h2>
+    <p class="small muted">The rules this app follows, with the current settings filled in. It updates as settings change.</p></div>
+  <div class="card guide"><h3>Getting in</h3>${li([
+    link?`Open <span class="np-mail">${esc(link)}</span> and enter the passcode. Ask JD for it. Your device remembers it after the first time.`:'Open the app link and enter the passcode. Ask JD for it. Your device remembers it after the first time.',
+    'Everyone sees the same data, and changes show up for everyone within a few seconds.',
+    'If two people edit the same item at the same moment, the last save wins, so give each other a heads-up on big edits.'])}</div>
+  <div class="card guide"><h3>How dues are calculated</h3>${li([
+    '<strong>Travel squad:</strong> an even share of gear, coach\'s pay, and USCCS costs, plus a share of every trip you\'re checked on.',
+    '<strong>Practice squad:</strong> only the trips you\'re checked on, plus any specific charge you\'re added to.',
+    '<strong>Trip cost</strong> = that trip\'s expenses divided by the players checked as traveling.',
+    '<strong>Exceptions</strong> are set per cost or per expense:'+(ex.length?li(ex):' none right now.')])}</div>
+  <div class="card guide"><h3>Rec Center fee</h3>${li([
+    `Some expenses are paid from UO's ${fmt(fee.start)} Rec Center fee instead of dues. The fee covers them oldest first, and anything past ${fmt(fee.start)} is billed to dues.`,
+    `Right now: ${fmt(fee.covered)} paid by the fee, ${fmt(fee.left)} left${fee.over>0.005?`, and ${fmt(fee.over)} over the fee budget billed to dues`:''}.`])}</div>
+  <div class="card guide"><h3>Fundraising</h3>${li([
+    `The team fundraising total${C.F?` (${fmt(C.F)} so far)`:''} is split evenly among <strong>${C.qMode?'only the travel squad players checked as inviting 20+ donors':'all travel squad players'}</strong>${prac.length?`, plus checked practice player${prac.length>1?'s':''} ${esc(prac.join(', '))}`:', plus any practice players we check'}.`,
+    own.length?`Fundraising for <strong>${esc(own.join(', '))}</strong> goes only to ${own.length>1?'their':'his'} own dues, and ${own.length>1?'they don\'t':'he doesn\'t'} share the team total.`:'A player can be set to "own dues only": his fundraising goes only to his dues, and he doesn\'t share the team total.',
+    'Fundraising can\'t take anyone\'s dues below $0.',
+    c.rollover?'If you\'ve already paid more than your dues after fundraising, that credit goes to players who still owe instead.':'If you\'ve already paid more than your dues after fundraising, you\'re owed a refund.'])}</div>
+  <div class="card guide"><h3>What we need from you</h3>${li([
+    'Log every payment on the <button class="link" data-act="tab" data-tab="payments">Payments tab</button>: amount, date, and how it was paid (Venmo, cash, check).',
+    'Don\'t re-enter expenses or payments on the Ledger tab. They post there automatically, and entering them again counts them twice.',
+    'Check with JD before changing costs, who pays, or fundraising settings.',
+    `Keep your <button class="link" data-act="tab" data-tab="nationals">Nationals prep</button> tasks current: owner, status, and notes.`+(next.length?` Open deadlines, earliest first (past due in red):${li(next.map(t=>`<span class="num${t.deadline<T?' late':''}">${npFmt(t.deadline)}</span> · ${esc(t.title)}${t.owner?` <span class="muted">(${esc(t.owner)})</span>`:''}`))}`:'')])}</div>`;
+}
 
 /* ---------- actions ---------- */
 function setCfg(mut){const c=clone(cfg());mut(c);put('config','main',c);}
@@ -1144,7 +1198,7 @@ document.addEventListener('focusout',e=>{const el=e.target;if(el.dataset&&el.dat
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.ld){e.preventDefault();commitLDate(e.target);}});
 document.addEventListener('submit',e=>{if(e.target.id==='lockform'){e.preventDefault();const v=$('lockcode').value.trim();if(v){S.lockMsg='';unlock(v);}}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input[type=text]')&&e.target.dataset.c)e.target.blur();});
-try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger','nationals'].includes(h))S.tab=h;}catch(e){}
+try{const h=location.hash.slice(1);if(['balances','trips','roster','costs','usccs','payments','ledger','nationals','guide'].includes(h))S.tab=h;}catch(e){}
 setStatus();render();boot();
 </script>
 </body>
