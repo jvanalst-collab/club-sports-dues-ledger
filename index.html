@@ -440,12 +440,18 @@ function lock(msg){
   try{localStorage.removeItem('ledger_code');}catch(e){}
   setStatus();render();
 }
+function whyFail(e){const m=String((e&&(e.message||e.hint||e.details||e.code))||'').slice(0,160),t=m.toLowerCase();
+  const fix=/invalid api key|no api key|jwt/.test(t)?'The key in config.js is wrong. Copy the anon (publishable) key from Supabase again.'
+    :/failed to fetch|networkerror|load failed|fetch/.test(t)?'The site could not reach Supabase. Check the url in config.js, and in Supabase make sure the project is not paused.'
+    :/could not find the function|ledger_get/.test(t)?'The database setup has not been run on this Supabase project. Run supabase-setup.sql in the SQL editor.'
+    :'Check your connection and try again.';
+  return `Could not reach the ledger. ${fix}${m?` (Supabase said: ${m})`:''}`;}
 async function unlock(code){
   S.phase='connecting';setStatus();render();
   let res;try{res=await sb.rpc('ledger_get',{p_code:code,p_rev:-1});}catch(e){res={error:e};}
   if(res.error||!res.data){
     if(isBad(res.error)) return lock(CFG.passcode&&code===String(CFG.passcode)?'The passcode in config.js does not match the one set in Supabase. Fix it in config.js, or enter the passcode here.':'That passcode is not right.');
-    S.phase='locked';S.lockMsg='Could not reach the ledger. Check your connection and try again.';setStatus();render();return;
+    S.phase='locked';S.lockMsg=whyFail(res.error);setStatus();render();return;
   }
   S.code=code;try{localStorage.setItem('ledger_code',code);}catch(e){}
   S.phase='live';apply(res.data);setStatus();
