@@ -418,7 +418,7 @@ async function flush(k){
   if(!wr.size) poll(true);
 }
 function setStatus(){
-  const el=$('status'),lk=$('lockbtn');lk.hidden=S.phase!=='live';
+  const el=$('status'),lk=$('lockbtn');lk.hidden=S.phase!=='live'||!!CFG.passcode;
   if(S.phase==='connecting'){el.dataset.s='saving';el.textContent='Connecting…';}
   else if(S.phase!=='live'){el.dataset.s='off';el.textContent=S.phase==='setup'?'Not set up':'Locked';}
   else if(S.offline){el.dataset.s='off';el.textContent='Offline, retrying…';}
@@ -444,7 +444,7 @@ async function unlock(code){
   S.phase='connecting';setStatus();render();
   let res;try{res=await sb.rpc('ledger_get',{p_code:code,p_rev:-1});}catch(e){res={error:e};}
   if(res.error||!res.data){
-    if(isBad(res.error)) return lock('That passcode is not right.');
+    if(isBad(res.error)) return lock(CFG.passcode&&code===String(CFG.passcode)?'The passcode in config.js does not match the one set in Supabase. Fix it in config.js, or enter the passcode here.':'That passcode is not right.');
     S.phase='locked';S.lockMsg='Could not reach the ledger. Check your connection and try again.';setStatus();render();return;
   }
   S.code=code;try{localStorage.setItem('ledger_code',code);}catch(e){}
@@ -467,6 +467,7 @@ function boot(){
   sb=window.supabase.createClient(CFG.url,CFG.key,{auth:{persistSession:false,autoRefreshToken:false}});
   setInterval(()=>poll(),4000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
+  if(CFG.passcode){unlock(String(CFG.passcode));return;}
   let code='';try{code=localStorage.getItem('ledger_code')||'';}catch(e){}
   if(code)unlock(code);else{S.phase='locked';setStatus();render();}
 }
@@ -1105,7 +1106,8 @@ function vGuide(C){
   return `<div class="card guide"><h2>How it works</h2>
     <p class="small muted">The rules this app follows, with the current settings filled in. It updates as settings change.</p></div>
   <div class="card guide"><h3>Getting in</h3>${li([
-    link?`Open <span class="np-mail">${esc(link)}</span> and enter the passcode. Ask JD for it. Your device remembers it after the first time.`:'Open the app link and enter the passcode. Ask JD for it. Your device remembers it after the first time.',
+    (()=>{const site=typeof CFG!=='undefined'&&CFG.url,needs=site&&!CFG.passcode,where=link?`<span class="np-mail">${esc(link)}</span>`:'the app link';
+      return !site?`Open ${where} while signed in to Claude.`:needs?`Open ${where} and enter the passcode. Ask JD for it. Your device remembers it after the first time.`:`Open ${where}. No passcode is needed, so anyone with the link can see and change the ledger. Keep the link within the team.`;})(),
     'Everyone sees the same data, and changes show up for everyone within a few seconds.',
     'If two people edit the same item at the same moment, the last save wins, so give each other a heads-up on big edits.'])}</div>
   <div class="card guide"><h3>How dues are calculated</h3>${li([
